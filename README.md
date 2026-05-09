@@ -80,6 +80,12 @@ You can run this bot on any server (like a cheap $5/mo DigitalOcean droplet, AWS
 
 ---
 
+## 📚 Additional Guides
+
+- **[BotFather Setup Guide](docs/botfather-setup.md)** — Step-by-step instructions for registering your bot on Telegram
+
+---
+
 ## 🛠️ Commands
 
 ### Public Commands (Anyone)
