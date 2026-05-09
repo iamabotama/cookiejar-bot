@@ -49,7 +49,7 @@ def answer_question(question: str, user_name: str = "community member") -> str:
         "Use ONLY the knowledge above to answer questions. "
         "If the answer is not in the knowledge base, say: "
         "'I don't have specific information on that yet — please check official "
-        "Cookie Monster community channels for the latest updates.' "
+        "Cookie Boy community channels for the latest updates.' "
         "Never speculate on price, never discuss other coins or networks."
     )
 
@@ -90,7 +90,7 @@ def adjust_post(original_post: str, instruction: str, user_name: str = "admin") 
         "--- END KNOWLEDGE BASE ---\n\n"
         "You are helping an admin adjust or improve a community post. "
         "Apply the requested changes while keeping the content accurate, "
-        "on-brand (Cookie Monster / $COOK / CookieNet themed), and community-friendly. "
+        "on-brand (Cookie Boy / $COOK / CookieNet themed), and community-friendly. "
         "Return ONLY the revised post text, nothing else."
     )
 

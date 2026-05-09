@@ -117,14 +117,14 @@ async def cmd_saveingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             f"✅ Ingested!\nTitle: {result['title']}\nEntry ID: `{result['entry_id']}`",
             parse_mode=ParseMode.MARKDOWN,
         )
-        # Send the Cookie Monster nom-nom image
+        # Send the Cookie Boy nom-nom image
         nom_path = Path(__file__).resolve().parent.parent / "assets" / "nom_nom.png"
         if nom_path.exists():
             with nom_path.open("rb") as img:
                 from telegram import InputFile
                 await update.message.reply_photo(
                     photo=InputFile(img, filename="nom_nom.png"),
-                    caption="NOM NOM NOM! 🍪 Data cookies ingested into the jar!",
+                    caption="NOM NOM NOM! 🍪 Cookie Boy ate that data! $COOK!",
                 )
     else:
         await msg.edit_text(f"❌ Ingestion failed: {result['error']}")
@@ -147,3 +147,59 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "🍪 I'm in listener mode here — I don't answer questions in this channel. "
             "Head to the main community channel to ask CookieJar a question!"
         )
+
+
+# ---------------------------------------------------------------------------
+# /cookiejar (admin) — listener mode version
+# Saves the replied-to message or inline text into the knowledge base
+# ---------------------------------------------------------------------------
+async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Listener-mode /cookiejar: saves a replied-to message or inline text
+    into the shared knowledge base so the primary bot can use it.
+    """
+    from . import knowledge_store, github_sync
+
+    admin_ids = [int(uid) for uid in __import__('os').environ.get("ADMIN_USER_IDS", "").split(",") if uid.strip().isdigit()]
+    if update.effective_user.id not in admin_ids:
+        await update.message.reply_text("🚫 Admin only.")
+        return
+
+    user_name = update.effective_user.first_name or "admin"
+    inline_text = " ".join(context.args).strip() if context.args else ""
+    replied_text = ""
+    if update.message.reply_to_message:
+        replied_text = (update.message.reply_to_message.text or "").strip()
+
+    content = inline_text or replied_text
+
+    if not content:
+        await update.message.reply_text(
+            "Reply to a message with /cookiejar to drop it in the jar, "
+            "or use /cookiejar <text> to save text directly."
+        )
+        return
+
+    result = knowledge_store.add_entry(
+        content=content,
+        source="telegram_cookiejar_listener",
+        title=f"Saved by {user_name} via /cookiejar (listener)",
+        tags=["cookiejar", "admin", "listener"],
+    )
+
+    if result["success"]:
+        await update.message.reply_text(
+            f"🍪 Dropped in the cookie jar! Entry ID: `{result['entry_id']}`",
+            parse_mode="Markdown",
+        )
+        nom_path = Path(__file__).resolve().parent.parent / "assets" / "nom_nom.png"
+        if nom_path.exists():
+            with nom_path.open("rb") as img:
+                from telegram import InputFile
+                await update.message.reply_photo(
+                    photo=InputFile(img, filename="nom_nom.png"),
+                    caption="NOM NOM NOM! 🍪 Cookie Boy ate that data! $COOK!",
+                )
+        github_sync.sync_knowledge_to_github()
+    else:
+        await update.message.reply_text(f"❌ Failed: {result['error']}")

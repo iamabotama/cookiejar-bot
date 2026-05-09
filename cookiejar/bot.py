@@ -17,6 +17,7 @@ from telegram.ext import (
 
 from . import config, github_sync, knowledge_store
 from .handlers_primary import (
+    cmd_cookiejar,
     cmd_start as primary_start,
     cmd_help as primary_help,
     cmd_ask,
@@ -32,6 +33,7 @@ from .handlers_primary import (
     handle_message as primary_message,
 )
 from .handlers_listener import (
+    cmd_cookiejar as listener_cookiejar,
     cmd_start as listener_start,
     cmd_help as listener_help,
     cmd_save,
@@ -74,6 +76,7 @@ def _set_bot_commands_primary(app: Application) -> None:
         BotCommand("archive", "[Admin] Archive an entry"),
         BotCommand("syncnow", "[Admin] Force GitHub sync"),
         BotCommand("stalecheck", "[Admin] Run auto stale check"),
+        BotCommand("cookiejar", "[Admin] Drop a reply or text into the knowledge jar"),
     ]
     # Commands are set at startup via post_init
     return commands
@@ -85,6 +88,7 @@ def _set_bot_commands_listener(app: Application) -> None:
         BotCommand("help", "Show commands"),
         BotCommand("save", "[Admin] Save replied message to knowledge base"),
         BotCommand("saveingest", "[Admin] Ingest a URL into knowledge base"),
+        BotCommand("cookiejar", "[Admin] Drop a reply into the knowledge jar"),
     ]
 
 
@@ -120,6 +124,7 @@ def build_primary_app() -> Application:
     app.add_handler(CommandHandler("archive", cmd_archive))
     app.add_handler(CommandHandler("syncnow", cmd_syncnow))
     app.add_handler(CommandHandler("stalecheck", cmd_stalecheck))
+    app.add_handler(CommandHandler("cookiejar", cmd_cookiejar))
 
     # Handle all text messages (for @mention and DM questions)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, primary_message))
@@ -139,6 +144,7 @@ def build_listener_app() -> Application:
     app.add_handler(CommandHandler("help", listener_help))
     app.add_handler(CommandHandler("save", cmd_save))
     app.add_handler(CommandHandler("saveingest", cmd_saveingest))
+    app.add_handler(CommandHandler("cookiejar", listener_cookiejar))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, listener_message))
 
     return app

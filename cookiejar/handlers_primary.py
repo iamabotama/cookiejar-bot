@@ -11,19 +11,21 @@ from telegram.constants import ParseMode
 
 from . import config, ingestion, knowledge_store, ai_engine, github_sync
 
-# Path to the Cookie Monster nom-nom image bundled with the bot
+# Path to the Cookie Boy nom-nom image bundled with the bot
 NOM_NOM_IMAGE: Path = Path(__file__).resolve().parent.parent / "assets" / "nom_nom.png"
 
 # Rotating captions shown with the nom-nom image on each ingestion
 NOM_NOM_CAPTIONS = [
-    "NOM NOM NOM! 🍪 Me just ate that data right up!",
-    "COOKIES! Om nom nom nom nom! 🍪 Data ingested!",
-    "Me LOVE data cookies! Chomp chomp chomp! 🍪",
-    "Om nom nom... dis data SO GOOD! 🍪 Stored in the jar!",
-    "*devours entire website* NOM NOM NOM! 🍪",
-    "Me can't stop! Data too delicious! NOM NOM! 🍪",
-    "COOOOOKIES! 🍪 Om nom nom nom nom nom!",
-    "Me eat data like cookies. NOM NOM NOM! 🍪 Yum!",
+    "NOM NOM NOM! 🍪 Cookie Boy just ate that data right up!",
+    "COOKIES! Cookie Boy is CHOMPING! 🍪 Data ingested into the jar!",
+    "Cookie Boy LOVES data cookies! Chomp chomp chomp! 🍪",
+    "Om nom nom... dis data SO GOOD! 🍪 Cookie Boy stored it in the jar!",
+    "*Cookie Boy devours entire website* NOM NOM NOM! 🍪",
+    "Cookie Boy can't stop! Data too delicious! NOM NOM! 🍪",
+    "COOOOOKIES! 🍪 Cookie Boy goes nom nom nom nom nom!",
+    "Cookie Boy ate the data. NOM NOM NOM! 🍪 Yum! $COOK!",
+    "Dev is cooking AND Cookie Boy is eating! 🍪 Data stored!",
+    "Accept all cookies? Cookie Boy already did. NOM! 🍪",
 ]
 
 _nom_nom_counter = 0
@@ -37,7 +39,7 @@ def _nom_nom_caption() -> str:
 
 
 async def _send_nom_nom(update: Update, caption: str = "") -> None:
-    """Send the Cookie Monster eating image with an optional caption."""
+    """Send the Cookie Boy eating image with an optional caption."""
     if NOM_NOM_IMAGE.exists():
         with NOM_NOM_IMAGE.open("rb") as img:
             await update.message.reply_photo(
@@ -76,8 +78,8 @@ def _fmt_entry_list(entries: list[dict], status: str = "active") -> str:
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "🍪 *Welcome to CookieJar!*\n\n"
-        "I'm the official AI assistant for the *Cookie Monster* community on CookieNet.\n\n"
-        "Ask me anything about *$COOK*, *CookieNet*, or the Cookie Monster community — "
+        "I'm the official AI assistant for the *Cookie Boy* community on CookieNet.\n\n"
+        "Ask me anything about *$COOK*, *CookieNet*, or the Cookie Boy community — "
         "just type your question or reply to any message with `@CookieJarBot`.\n\n"
         "Type /help to see all available commands.",
         parse_mode=ParseMode.MARKDOWN,
@@ -177,7 +179,7 @@ async def cmd_ingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             f"*Summary:* {summary}",
             parse_mode=ParseMode.MARKDOWN,
         )
-        # Send the Cookie Monster nom-nom image as a fun confirmation
+        # Send the Cookie Boy nom-nom image as a fun confirmation
         await _send_nom_nom(update)
     else:
         await msg.edit_text(f"❌ Ingestion failed: {result['error']}")
@@ -213,7 +215,7 @@ async def cmd_addpost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             f"✅ Post added to the cookie jar!\nEntry ID: `{result['entry_id']}`",
             parse_mode=ParseMode.MARKDOWN,
         )
-        # Send the Cookie Monster nom-nom image as a fun confirmation
+        # Send the Cookie Boy nom-nom image as a fun confirmation
         await _send_nom_nom(update)
     else:
         await update.message.reply_text(f"❌ Failed to add post: {result['error']}")
@@ -323,7 +325,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await message.reply_text("I can only adjust text messages.")
             return
         if not instruction:
-            instruction = "Improve this post for the Cookie Monster community."
+            instruction = "Improve this post for the Cookie Boy community."
         await message.reply_text("🍪 Adjusting that post...")
         adjusted = ai_engine.adjust_post(original, instruction, user_name=user_name)
         await message.reply_text(f"*Adjusted post:*\n\n{adjusted}", parse_mode=ParseMode.MARKDOWN)
@@ -344,3 +346,113 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await message.reply_text("🍪 Reaching into the cookie jar...")
         answer = ai_engine.answer_question(text, user_name=user_name)
         await message.reply_text(answer)
+
+
+# ---------------------------------------------------------------------------
+# /cookiejar (admin) — reply to any message to save it into the knowledge base
+# ---------------------------------------------------------------------------
+async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    /cookiejar — When used as a reply to a message, saves that message's text
+    into the knowledge base. Works in both group channels and DMs.
+
+    Usage:
+      - Reply to any message with /cookiejar to save it.
+      - /cookiejar <text> to save inline text directly (no reply needed).
+    """
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Admin only command.")
+        return
+
+    user_name = update.effective_user.first_name or "admin"
+
+    # Priority 1: inline text after the command
+    inline_text = " ".join(context.args).strip() if context.args else ""
+
+    # Priority 2: replied-to message text
+    replied_text = ""
+    if update.message.reply_to_message:
+        replied_text = (update.message.reply_to_message.text or "").strip()
+
+    content = inline_text or replied_text
+
+    if not content:
+        await update.message.reply_text(
+            "Usage:\n"
+            "• Reply to any message with `/cookiejar` to drop it in the jar.\n"
+            "• Or: `/cookiejar <text>` to save text directly.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    result = knowledge_store.add_entry(
+        content=content,
+        source="telegram_cookiejar_command",
+        title=f"Saved by {user_name} via /cookiejar",
+        tags=["cookiejar", "admin", "manual"],
+    )
+
+    if result["success"]:
+        await update.message.reply_text(
+            f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{result['entry_id']}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await _send_nom_nom(update)
+        github_sync.sync_knowledge_to_github()
+    else:
+        await update.message.reply_text(f"❌ Failed to save: {result['error']}")
+
+
+# ---------------------------------------------------------------------------
+# /cookiejar (admin) — reply to any message to save it into the knowledge base
+# ---------------------------------------------------------------------------
+async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    /cookiejar — When used as a reply to a message, saves that message's text
+    into the knowledge base. Works in both group channels and DMs.
+
+    Usage:
+      - Reply to any message with /cookiejar to save it.
+      - /cookiejar <text> to save inline text directly (no reply needed).
+    """
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Admin only command.")
+        return
+
+    user_name = update.effective_user.first_name or "admin"
+
+    # Priority 1: inline text after the command
+    inline_text = " ".join(context.args).strip() if context.args else ""
+
+    # Priority 2: replied-to message text
+    replied_text = ""
+    if update.message.reply_to_message:
+        replied_text = (update.message.reply_to_message.text or "").strip()
+
+    content = inline_text or replied_text
+
+    if not content:
+        await update.message.reply_text(
+            "Usage:\n"
+            "• Reply to any message with `/cookiejar` to drop it in the jar.\n"
+            "• Or: `/cookiejar <text>` to save text directly.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    result = knowledge_store.add_entry(
+        content=content,
+        source="telegram_cookiejar_command",
+        title=f"Saved by {user_name} via /cookiejar",
+        tags=["cookiejar", "admin", "manual"],
+    )
+
+    if result["success"]:
+        await update.message.reply_text(
+            f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{result['entry_id']}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await _send_nom_nom(update)
+        github_sync.sync_knowledge_to_github()
+    else:
+        await update.message.reply_text(f"❌ Failed to save: {result['error']}")

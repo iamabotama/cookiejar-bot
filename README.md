@@ -1,6 +1,6 @@
 # 🍪 CookieJar Bot
 
-**CookieJar** is an AI-powered Telegram bot built specifically for the **Cookie Monster ($COOK / CookieNet)** crypto community. 
+**CookieJar** is an AI-powered Telegram bot built specifically for the **Cookie Boy ($COOK / CookieNet)** crypto community. 
 
 It acts as an automated community expert. It ingests data from URLs or manual admin posts, stores that data in a timestamped GitHub-backed knowledge base, and uses Grok AI to answer community questions strictly based on that ingested knowledge.
 
@@ -15,7 +15,7 @@ It acts as an automated community expert. It ingests data from URLs or manual ad
 - **Dual Modes**: 
   - `primary`: The main bot that answers questions and handles commands.
   - `listener`: A silent mode for admin/whale channels. Admins can reply to important messages with `/save` to silently push that data to the knowledge base for the primary bot to use.
-- **Cookie Monster Easter Egg**: Every time data is successfully ingested, the bot replies with a generated image of Cookie Monster devouring data cookies!
+- **Cookie Boy Easter Egg**: Every time data is successfully ingested, the bot replies with a generated image of Cookie Boy devouring data cookies!
 
 ---
 
@@ -95,16 +95,18 @@ You can run this bot on any server (like a cheap $5/mo DigitalOcean droplet, AWS
 - `/liststale` — Show older entries that might need review
 - `/archive <id>` — Move an entry to cold storage
 - `/syncnow` — Force an immediate push/pull with GitHub
+- `/cookiejar` — (Reply to any message) Drop it straight into the knowledge jar; or `/cookiejar <text>` to save text directly
 
 ### Admin Commands (Listener Mode)
 - `/save` — (Used as a reply) Push the replied-to message into the knowledge base
 - `/saveingest <url>` — Silently ingest a URL
+- `/cookiejar` — (Reply to any message) Drop it into the knowledge jar; or `/cookiejar <text>` to save text directly
 
 ---
 
 ## 🗄️ How the Knowledge Base Works
 
-The bot stores all its knowledge in a local file: `cookiejar/knowledge/active.jsonl`. This makes answering questions incredibly fast.
+The bot stores all its knowledge in a local file: `knowledge/active.jsonl`. This makes answering questions incredibly fast.
 
 Every 30 minutes, the bot pushes a backup of this file, along with raw text copies of everything it ingested, to the `iamabotama/cookiejar-bot` GitHub repository.
 
