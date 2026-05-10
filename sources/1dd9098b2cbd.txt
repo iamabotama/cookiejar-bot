@@ -1,0 +1,4 @@
+URL: https://api.cookiescan.io/playground
+Title: Cookiescan Trading API
+
+Cookiescan Trading API
