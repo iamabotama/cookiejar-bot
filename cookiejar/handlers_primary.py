@@ -3,11 +3,12 @@ CookieJar Bot — Primary Mode Handlers
 Handles all commands and messages for the public Q&A / community channel.
 """
 
+import asyncio
 import logging
 from pathlib import Path
 from telegram import Update, Message, InputFile
 from telegram.ext import ContextTypes
-from telegram.constants import ParseMode
+from telegram.constants import ChatAction, ParseMode
 
 from . import config, ingestion, knowledge_store, ai_engine, github_sync, ingestion_crawler
 
@@ -215,10 +216,11 @@ async def cmd_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(digest, parse_mode=ParseMode.MARKDOWN)
         return
 
-    await update.message.reply_text("🍪 Looking...")
     user_name = update.effective_user.first_name or "community member"
-    answer = ai_engine.answer_question(question, user_name=user_name)
-    await update.message.reply_text(answer)
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+    placeholder = await update.message.reply_text("🍪 ...")
+    answer = await asyncio.get_event_loop().run_in_executor(None, ai_engine.answer_question, question, user_name)
+    await placeholder.edit_text(answer)
 
 
 # ---------------------------------------------------------------------------
@@ -804,27 +806,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await message.reply_text("I can only adjust text messages.")
             return
         if not instruction:
-            instruction = "Improve this post for the Cookie Boy community."
-        await message.reply_text("🍪 Adjusting that post...")
-        adjusted = ai_engine.adjust_post(original, instruction, user_name=user_name)
-        await message.reply_text(f"*Adjusted post:*\n\n{adjusted}", parse_mode=ParseMode.MARKDOWN)
+            instruction = "Improve this post for the Cookie Chain community."
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        placeholder = await message.reply_text("🍪 ...")
+        adjusted = await asyncio.get_event_loop().run_in_executor(None, ai_engine.adjust_post, original, instruction, user_name)
+        await placeholder.edit_text(f"*Adjusted post:*\n\n{adjusted}", parse_mode=ParseMode.MARKDOWN)
         return
-
     # Case 2: @BotName question (no reply)
     if text.startswith(bot_username):
         question = text[len(bot_username):].strip()
         if not question:
             return
-        await message.reply_text("🍪 Looking...")
-        answer = ai_engine.answer_question(question, user_name=user_name)
-        await message.reply_text(answer)
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        placeholder = await message.reply_text("🍪 ...")
+        answer = await asyncio.get_event_loop().run_in_executor(None, ai_engine.answer_question, question, user_name)
+        await placeholder.edit_text(answer)
         return
-
     # Case 3: Direct message in a private chat — treat as question
     if update.effective_chat.type == "private":
-        await message.reply_text("🍪 Looking...")
-        answer = ai_engine.answer_question(text, user_name=user_name)
-        await message.reply_text(answer)
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        placeholder = await message.reply_text("🍪 ...")
+        answer = await asyncio.get_event_loop().run_in_executor(None, ai_engine.answer_question, text, user_name)
+        await placeholder.edit_text(answer)
 
 
 # ---------------------------------------------------------------------------
