@@ -25,7 +25,7 @@ def _is_admin(user_id: int) -> bool:
 async def _send_nom_nom(update: Update) -> None:
     """Send a cookie reaction GIF randomly 1-in-10 times, otherwise just text."""
     import random
-    text = "NOM NOM NOM! 🍪 Dropped in the cookie jar!"
+    text = "Saved. 🍪"
     if random.randint(1, 10) == 1 and COOKIE_GIF.exists():
         with COOKIE_GIF.open("rb") as gif:
             await update.message.reply_animation(
@@ -256,7 +256,7 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 added_by=user_id,
             )
             await update.message.reply_text(
-                f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{entry.get('id', '?')}`",
+                f"🍪 Saved. `{entry.get('id', '?')}`",
                 parse_mode=ParseMode.MARKDOWN,
             )
             await _send_nom_nom(update)
@@ -390,7 +390,7 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 added_by=user_id,
             )
             await update.message.reply_text(
-                f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{entry.get('id', '?')}`",
+                f"🍪 Saved. `{entry.get('id', '?')}`",
                 parse_mode=ParseMode.MARKDOWN,
             )
             await _send_nom_nom(update)
@@ -468,7 +468,7 @@ async def cmd_setmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     elif arg in ("answer", "primary"):
         config.BOT_MODE = "primary"
         await update.message.reply_text(
-            "🍪 *Mode set to ANSWER (primary).* NOM NOM NOM! Ready to answer questions!",
+            "🍪 Answer mode active.",
             parse_mode=ParseMode.MARKDOWN,
         )
     elif arg == "status":

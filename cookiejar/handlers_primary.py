@@ -16,16 +16,11 @@ COOKIE_GIF: Path = Path(__file__).resolve().parent.parent / "assets" / "cookie_r
 
 # Rotating captions shown with the nom-nom image on each ingestion
 NOM_NOM_CAPTIONS = [
-    "NOM NOM NOM! 🍪 Cookie Boy just ate that data right up!",
-    "COOKIES! Cookie Boy is CHOMPING! 🍪 Data ingested into the jar!",
-    "Cookie Boy LOVES data cookies! Chomp chomp chomp! 🍪",
-    "Om nom nom... dis data SO GOOD! 🍪 Cookie Boy stored it in the jar!",
-    "*Cookie Boy devours entire website* NOM NOM NOM! 🍪",
-    "Cookie Boy can't stop! Data too delicious! NOM NOM! 🍪",
-    "COOOOOKIES! 🍪 Cookie Boy goes nom nom nom nom nom!",
-    "Cookie Boy ate the data. NOM NOM NOM! 🍪 Yum! $COOK!",
-    "Dev is cooking AND Cookie Boy is eating! 🍪 Data stored!",
-    "Accept all cookies? Cookie Boy already did. NOM! 🍪",
+    "Nom nom. 🍪",
+    "In the jar. 🍪",
+    "Saved. 🍪",
+    "Got it. 🍪",
+    "Stored. 🍪",
 ]
 
 _nom_nom_counter = 0
@@ -122,10 +117,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
     await update.message.reply_text(
-        "🍪 *NOM NOM NOM! Me CookieJar!*\n\n"
-        "Me the official Cookie Boy ($COOK) community assistant!\n"
-        "Me know everything about CookieNet and $COOK.\n\n"
-        "Ask me anything with `/ask <your question>` or just `@mewantcookiesbot <question>`!\n\n"
+        "🍪 *CookieJar*\n\n"
+        "Ask me anything about $COOK or Cookie Chain.\n"
+        "Use `/ask <question>` or mention me directly.\n\n"
         "Type `/help` to see all commands.",
         parse_mode=ParseMode.MARKDOWN,
     )
@@ -204,7 +198,7 @@ async def cmd_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode=ParseMode.MARKDOWN,
         )
         return
-    await update.message.reply_text("🍪 Reaching into the cookie jar...")
+    await update.message.reply_text("🍪 Looking...")
     user_name = update.effective_user.first_name or "community member"
     answer = ai_engine.answer_question(question, user_name=user_name)
     await update.message.reply_text(answer)
@@ -282,7 +276,7 @@ async def cmd_addpost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
     if result["success"]:
         await update.message.reply_text(
-            f"✅ Post added to the cookie jar!\nEntry ID: `{result['entry_id']}`",
+            f"✅ Saved. `{result['entry_id']}`",
             parse_mode=ParseMode.MARKDOWN,
         )
         await _send_nom_nom(update)
@@ -430,7 +424,7 @@ async def _cj_save(
     entry_id = entry.get("id", "?")
     pin_label = " 📌 *PINNED*" if priority == "pinned" else ""
     await update.message.reply_text(
-        f"🍪 *Dropped in the cookie jar!*{pin_label}\nEntry ID: `{entry_id}`",
+        f"🍪 Saved.{pin_label} `{entry_id}`",
         parse_mode=ParseMode.MARKDOWN,
     )
     await _send_nom_nom(update)
@@ -716,16 +710,13 @@ async def cmd_setmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if arg in ("listen", "listener"):
         config.BOT_MODE = "listener"
         await update.message.reply_text(
-            "🔇 *Mode set to LISTENER.*\n"
-            "I will no longer answer questions in this session. "
-            "I will only save messages when admins use `/cookiejar` or `/save`.",
+            "🔇 Listener mode active.",
             parse_mode=ParseMode.MARKDOWN,
         )
     elif arg in ("answer", "primary"):
         config.BOT_MODE = "primary"
         await update.message.reply_text(
-            "🍪 *Mode set to ANSWER (primary).*\n"
-            "I'm back! Ask me anything about $COOK and CookieNet. NOM NOM NOM!",
+            "🍪 Answer mode active.",
             parse_mode=ParseMode.MARKDOWN,
         )
     elif arg == "status":
@@ -780,14 +771,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         question = text[len(bot_username):].strip()
         if not question:
             return
-        await message.reply_text("🍪 Reaching into the cookie jar...")
+        await message.reply_text("🍪 Looking...")
         answer = ai_engine.answer_question(question, user_name=user_name)
         await message.reply_text(answer)
         return
 
     # Case 3: Direct message in a private chat — treat as question
     if update.effective_chat.type == "private":
-        await message.reply_text("🍪 Reaching into the cookie jar...")
+        await message.reply_text("🍪 Looking...")
         answer = ai_engine.answer_question(text, user_name=user_name)
         await message.reply_text(answer)
 
