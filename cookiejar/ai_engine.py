@@ -204,6 +204,75 @@ def adjust_post(original_post: str, instruction: str, user_name: str = "admin") 
         return "Cookie jar error — could not adjust post. Please try again!"
 
 
+
+def generate_updates(days: int = 14) -> str:
+    """
+    Scan knowledge base entries from the last `days` days, rank by importance,
+    and return a formatted top-10 digest suitable for posting in Telegram.
+    """
+    from datetime import datetime, timezone, timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    all_entries = knowledge_store.list_entries(status="active")
+    recent = []
+    for e in all_entries:
+        try:
+            ts = datetime.fromisoformat(e.get("ingested_at", "").replace("Z", "+00:00"))
+            if ts >= cutoff:
+                recent.append(e)
+        except Exception:
+            pass
+
+    if not recent:
+        return (
+            f"🍪 No new knowledge entries in the last {days} days.\n"
+            "The jar is still full — try `/ask` for anything specific!"
+        )
+
+    # Build a compact context block for the AI to rank
+    context_lines = []
+    for i, e in enumerate(recent, 1):
+        title = e.get("title", "untitled")[:80]
+        snippet = e.get("content", "")[:300].replace("\n", " ")
+        added = e.get("ingested_at", "?")[:10]
+        priority = e.get("priority", "normal")
+        context_lines.append(f"{i}. [{added}] ({priority}) {title}\n   {snippet}")
+    context_block = "\n\n".join(context_lines)
+
+    system_prompt = _build_system_prompt(
+        knowledge=context_block,
+        extra_instruction=(
+            "You are compiling a community update digest. "
+            "From the entries above, select the TOP 10 most important, newsworthy, "
+            "or status-relevant items. Rank them from most to least important. "
+            "Format the output as a Telegram-ready message using this exact structure:\n"
+            "🍪 *Cookie Chain — Latest Updates*\n"
+            "_(past {days} days)_\n\n"
+            "1. *[Short title]* — One sentence summary.\n"
+            "2. *[Short title]* — One sentence summary.\n"
+            "... (up to 10 items)\n\n"
+            "_Ask me anything with /ask <question>_ 🍪\n\n"
+            "Rules: Use ONLY the provided entries. Do NOT invent items. "
+            "Keep each line to one sentence. No price talk or speculation."
+        ).format(days=days),
+    )
+
+    try:
+        client = _get_client()
+        response = client.chat.completions.create(
+            model=config.AI_MODEL_HEAVY,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Generate a top-10 update digest from the last {days} days."},
+            ],
+            max_tokens=900,
+            temperature=0.3,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as exc:
+        log.error("generate_updates error: %s", exc)
+        return "🍪 Cookie jar error — could not generate updates. Try again in a moment!"
+
 def generate_summary(content: str, max_sentences: int = 5) -> str:
     """
     Generate a short summary of ingested content for confirmation messages.

@@ -137,6 +137,7 @@ async def _build_help_text(is_admin: bool) -> str:
             "_Silent mode: I collect data but don\'t answer questions._\n\n"
             "• `/cj announce` — Post a public intro message\n"
             "• `/cj status` — Show mode and entry counts\n"
+            "• `/updates` — Latest updates from the last 2 weeks\n"
             "• `/help` — This message\n"
         )
         admin = (
@@ -161,6 +162,7 @@ async def _build_help_text(is_admin: bool) -> str:
             "• `/ask <question>` — Ask me about $COOK or Cookie Chain\n"
             "• `/stats` — See how many cookies are in the jar\n"
             "• `/start` — Welcome message\n"
+            "• `/updates` — Latest updates from the last 2 weeks\n"
             "• `/help` — This message\n"
         )
         admin = (
@@ -200,6 +202,19 @@ async def cmd_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode=ParseMode.MARKDOWN,
         )
         return
+    # Auto-detect update/news/status queries and route to digest
+    UPDATE_TRIGGERS = {
+        "what's new", "whats new", "any updates", "latest updates",
+        "recent news", "what happened", "news", "updates", "status update",
+        "anything new", "what's going on", "what is going on", "catch me up",
+        "latest news", "recent updates", "new developments",
+    }
+    if any(kw in question.lower() for kw in UPDATE_TRIGGERS):
+        await update.message.reply_text("🍪 Checking the jar for recent updates...")
+        digest = ai_engine.generate_updates(days=14)
+        await update.message.reply_text(digest, parse_mode=ParseMode.MARKDOWN)
+        return
+
     await update.message.reply_text("🍪 Looking...")
     user_name = update.effective_user.first_name or "community member"
     answer = ai_engine.answer_question(question, user_name=user_name)
@@ -222,6 +237,17 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         parse_mode=ParseMode.MARKDOWN,
     )
 
+
+
+# ---------------------------------------------------------------------------
+# /updates (public) — recent knowledge digest
+# ---------------------------------------------------------------------------
+async def cmd_updates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    await update.message.reply_text("🍪 Checking the jar for recent updates...")
+    digest = ai_engine.generate_updates(days=14)
+    await update.message.reply_text(digest, parse_mode=ParseMode.MARKDOWN)
 
 # ---------------------------------------------------------------------------
 # /ingest (admin)

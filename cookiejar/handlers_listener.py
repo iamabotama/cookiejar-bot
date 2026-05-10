@@ -11,7 +11,7 @@ from telegram import Update, Message, InputFile
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
-from . import config, knowledge_store, github_sync, ingestion, ingestion_crawler
+from . import ai_engine, config, knowledge_store, github_sync, ingestion, ingestion_crawler
 
 log = logging.getLogger(__name__)
 
@@ -54,6 +54,17 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # ---------------------------------------------------------------------------
 # /help
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# /updates (public) — recent knowledge digest
+# ---------------------------------------------------------------------------
+async def cmd_updates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    await update.message.reply_text("🍪 Checking the jar for recent updates...")
+    digest = ai_engine.generate_updates(days=14)
+    await update.message.reply_text(digest, parse_mode=ParseMode.MARKDOWN)
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
@@ -65,6 +76,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "_Silent mode: I collect data but don\'t answer questions._\n\n"
             "• `/cj announce` — Post a public intro message\n"
             "• `/cj status` — Show mode and entry counts\n"
+            "• `/updates` — Latest updates from the last 2 weeks\n"
             "• `/help` — This message\n"
         )
         admin = (
@@ -89,6 +101,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "• `/ask <question>` — Ask me about $COOK or Cookie Chain\n"
             "• `/stats` — See how many cookies are in the jar\n"
             "• `/start` — Welcome message\n"
+            "• `/updates` — Latest updates from the last 2 weeks\n"
             "• `/help` — This message\n"
         )
         admin = (

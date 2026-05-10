@@ -34,6 +34,7 @@ from .handlers_primary import (
     cmd_archive,
     cmd_syncnow,
     cmd_stalecheck,
+    cmd_updates,
     handle_message as primary_message,
 )
 from .handlers_listener import (
@@ -43,6 +44,7 @@ from .handlers_listener import (
     cmd_help as listener_help,
     cmd_save,
     cmd_saveingest,
+    cmd_updates as listener_updates,
     handle_message as listener_message,
 )
 
@@ -73,6 +75,7 @@ def _set_bot_commands_primary(app: Application) -> None:
         BotCommand("help", "Show all commands"),
         BotCommand("ask", "Ask CookieJar a question"),
         BotCommand("stats", "Knowledge base statistics"),
+        BotCommand("updates", "Latest updates from the last 2 weeks"),
         BotCommand("ingest", "[Admin] Ingest a website URL"),
         BotCommand("addpost", "[Admin] Add a manual post"),
         BotCommand("listentries", "[Admin] List active entries"),
@@ -127,6 +130,7 @@ def build_primary_app() -> Application:
     app.add_handler(CommandHandler("help", primary_help))
     app.add_handler(CommandHandler("ask", cmd_ask))
     app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("updates", cmd_updates))
     app.add_handler(CommandHandler("ingest", cmd_ingest))
     app.add_handler(CommandHandler("addpost", cmd_addpost))
     app.add_handler(CommandHandler("listentries", cmd_listentries))
@@ -163,6 +167,7 @@ def build_listener_app() -> Application:
     app.add_handler(CommandHandler("cookiejar", listener_cookiejar))
     app.add_handler(CommandHandler("cj", listener_cookiejar))
     app.add_handler(CommandHandler("setmode", listener_setmode))
+    app.add_handler(CommandHandler("updates", listener_updates))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, listener_message))
 
     return app
