@@ -74,9 +74,9 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         public = (
             "🔇 *CookieJar — Listener Mode*\n"
             "_Silent mode: I collect data but don\'t answer questions._\n\n"
-            "• `/cj announce` — Post a public intro message\n"
-            "• `/cj status` — Show mode and entry counts\n"
             "• `/updates` — Latest updates from the last 2 weeks\n"
+            "• `/cj status` — Show mode and entry counts\n"
+            "• `/cj announce` — Post a public intro message\n"
             "• `/help` — This message\n"
         )
         admin = (
@@ -100,8 +100,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "*Public:*\n"
             "• `/ask <question>` — Ask me about $COOK or Cookie Chain\n"
             "• `/stats` — See how many cookies are in the jar\n"
-            "• `/start` — Welcome message\n"
             "• `/updates` — Latest updates from the last 2 weeks\n"
+            "• `/cj status` — Show mode and entry counts\n"
+            "• `/cj announce` — Post a public intro message\n"
+            "• `/start` — Welcome message\n"
             "• `/help` — This message\n"
         )
         admin = (
@@ -113,8 +115,6 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "• `/cj pin <text or reply>` — Save as high-priority\n"
             "• `/cj stale <id>` — Mark an entry as stale\n"
             "• `/cj deletelast` — Delete the last entry (within 5 min)\n"
-            "• `/cj announce` — Post a public intro message\n"
-            "• `/cj status` — Show mode and entry counts\n"
             "• `/listentries` — List active knowledge entries\n"
             "• `/liststale` — List stale entries\n"
             "• `/syncnow` — Force GitHub sync\n"
