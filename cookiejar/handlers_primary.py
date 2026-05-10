@@ -9,7 +9,7 @@ from telegram import Update, Message, InputFile
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
-from . import config, ingestion, knowledge_store, ai_engine, github_sync
+from . import config, ingestion, knowledge_store, ai_engine, github_sync, ingestion_crawler
 
 # Path to the Cookie Boy nom-nom image bundled with the bot
 NOM_NOM_IMAGE: Path = Path(__file__).resolve().parent.parent / "assets" / "nom_nom.png"
@@ -395,6 +395,7 @@ CJ_HELP = (
     "• `/cj` — Save the replied-to message\n"
     "• `/cj ingest <text>` — Save inline text\n"
     "• `/cj ingest <url>` — Scrape URL and save as knowledge entry\n"
+    "• `/cj crawl <url>` — Crawl entire site and ingest all pages/sections\n"
     "• `/cj note <text>` — Save text tagged as an admin note\n"
     "• `/cj pin <text or reply>` — Save and mark as high-priority\n\n"
     "*Manage entries:*\n"
@@ -575,7 +576,52 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                            user_name=user_name, user_id=user_id)
         return
 
-    # ── No sub-command: save replied-to message ─────────────────────────────
+    # ── /cj crawl <url> ────────────────────────────────────────────────────
+    if sub == "crawl":
+        crawl_url = " ".join(args[1:]).strip()
+        if not crawl_url or not (crawl_url.startswith("http://") or crawl_url.startswith("https://")):
+            await update.message.reply_text(
+                "Usage: `/cj crawl <url>`\nExample: `/cj crawl https://cookiescan.io/docs`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+        await update.message.reply_text(
+            f"🕷️ Starting site crawl of `{crawl_url}`...\nThis may take a minute — I'll report back when done!",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        result = ingestion_crawler.crawl_site(crawl_url, max_pages=30)
+        if not result["success"]:
+            await update.message.reply_text(f"❌ Crawl failed: {result.get('error', 'unknown error')}")
+            return
+        pages = result["pages"]
+        saved = 0
+        skipped = 0
+        for pg in pages:
+            pg_content = pg.get("content", "").strip()
+            if len(pg_content) < 80:
+                skipped += 1
+                continue
+            knowledge_store.add_entry(
+                content=pg_content,
+                source=pg.get("url", crawl_url),
+                title=pg.get("title", pg.get("url", "Crawled page")),
+                tags=["web", "crawled", "site-ingest"],
+                added_by=user_id,
+            )
+            saved += 1
+        github_sync.sync_knowledge_to_github()
+        await update.message.reply_text(
+            f"🍪 *Site crawl complete!*\n"
+            f"URL: `{crawl_url}`\n"
+            f"Pages saved: `{saved}`\n"
+            f"Pages skipped (too short): `{skipped}`\n"
+            f"Total discovered: `{result['count']}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await _send_nom_nom(update)
+        return
+
+        # ── No sub-command: save replied-to message ─────────────────────────────
     replied_text = ""
     if update.message.reply_to_message:
         replied_text = (update.message.reply_to_message.text or "").strip()
