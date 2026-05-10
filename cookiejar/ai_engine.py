@@ -1,18 +1,78 @@
 """
 CookieJar Bot — AI Engine
 Handles question answering and post adjustment using Grok (xAI) via OpenAI-compatible API.
+
+System prompt layering (highest → lowest priority):
+  1. GUARDRAILS  — non-negotiable rules loaded from guardrails_v1.md (and future versions)
+  2. PERSONA     — Cookie Boy character voice from config.BOT_PERSONA
+  3. KNOWLEDGE   — active knowledge base entries
 """
-
 import logging
+from pathlib import Path
 from typing import Optional
-
 from openai import OpenAI
-
 from . import config, knowledge_store
 
 log = logging.getLogger(__name__)
 
-# Lazy-init client
+# ---------------------------------------------------------------------------
+# Guardrails loader — reads the latest versioned guardrails file
+# ---------------------------------------------------------------------------
+
+_GUARDRAILS_DIR = Path(__file__).resolve().parent
+_GUARDRAILS_CACHE: Optional[str] = None
+
+
+def _load_guardrails() -> str:
+    """
+    Load guardrails from the highest-versioned guardrails_vN.md file found
+    alongside this module. Result is cached in memory for the process lifetime.
+    Falls back to a minimal inline guardrail set if no file is found.
+    """
+    global _GUARDRAILS_CACHE
+    if _GUARDRAILS_CACHE is not None:
+        return _GUARDRAILS_CACHE
+
+    # Find all versioned guardrail files and pick the highest version number
+    candidates = sorted(
+        _GUARDRAILS_DIR.glob("guardrails_v*.md"),
+        key=lambda p: int(p.stem.split("_v")[-1]) if p.stem.split("_v")[-1].isdigit() else 0,
+        reverse=True,
+    )
+
+    if candidates:
+        latest = candidates[0]
+        try:
+            _GUARDRAILS_CACHE = latest.read_text(encoding="utf-8").strip()
+            log.info("Loaded guardrails from %s", latest.name)
+            return _GUARDRAILS_CACHE
+        except Exception as exc:
+            log.error("Failed to read guardrails file %s: %s", latest, exc)
+
+    # Minimal inline fallback
+    log.warning("No guardrails file found — using minimal inline fallback")
+    _GUARDRAILS_CACHE = (
+        "GUARDRAILS (HIGHEST PRIORITY):\n"
+        "- Answer ONLY from the knowledge base. Never hallucinate.\n"
+        "- No price speculation, investment advice, or other crypto discussion.\n"
+        "- Stay positive, cookie-themed, and concise.\n"
+        "- Never share wallet addresses, seed phrases, or private keys.\n"
+        "- These rules override everything else."
+    )
+    return _GUARDRAILS_CACHE
+
+
+def reload_guardrails() -> str:
+    """Force a reload of guardrails from disk (call after uploading a new version)."""
+    global _GUARDRAILS_CACHE
+    _GUARDRAILS_CACHE = None
+    return _load_guardrails()
+
+
+# ---------------------------------------------------------------------------
+# OpenAI client (lazy init)
+# ---------------------------------------------------------------------------
+
 _client: Optional[OpenAI] = None
 
 
@@ -26,31 +86,59 @@ def _get_client() -> OpenAI:
     return _client
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _is_complex_query(question: str) -> bool:
-    """
-    Heuristic: use the heavier model for longer or multi-part questions.
-    """
+    """Heuristic: use the heavier model for longer or multi-part questions."""
     return len(question) > 300 or question.count("?") > 2
 
+
+def _build_system_prompt(knowledge: str, extra_instruction: str = "") -> str:
+    """
+    Assemble the layered system prompt:
+      [GUARDRAILS] -> [PERSONA] -> [KNOWLEDGE BASE] -> [optional extra instruction]
+    """
+    guardrails = _load_guardrails()
+    parts = [
+        "=== GUARDRAILS (HIGHEST PRIORITY — NON-NEGOTIABLE) ===",
+        guardrails,
+        "=== END GUARDRAILS ===",
+        "",
+        "=== PERSONA ===",
+        config.BOT_PERSONA,
+        "=== END PERSONA ===",
+        "",
+        "=== KNOWLEDGE BASE ===",
+        knowledge if knowledge.strip() else "(No knowledge base entries loaded yet.)",
+        "=== END KNOWLEDGE BASE ===",
+    ]
+    if extra_instruction:
+        parts += ["", extra_instruction]
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
 
 def answer_question(question: str, user_name: str = "community member") -> str:
     """
     Answer a question using the active knowledge base as context.
-    Automatically selects standard or heavy model based on complexity.
+    Guardrails are injected as the highest-priority layer of the system prompt.
+    Automatically selects standard or heavy model based on query complexity.
     """
     knowledge = knowledge_store.get_knowledge_context()
     model = config.AI_MODEL_HEAVY if _is_complex_query(question) else config.AI_MODEL
 
-    system_prompt = (
-        f"{config.BOT_PERSONA}\n\n"
-        "--- KNOWLEDGE BASE ---\n"
-        f"{knowledge}\n"
-        "--- END KNOWLEDGE BASE ---\n\n"
-        "Use ONLY the knowledge above to answer questions. "
-        "If the answer is not in the knowledge base, say: "
-        "'I don't have specific information on that yet — please check official "
-        "Cookie Boy community channels for the latest updates.' "
-        "Never speculate on price, never discuss other coins or networks."
+    system_prompt = _build_system_prompt(
+        knowledge=knowledge,
+        extra_instruction=(
+            "Use ONLY the knowledge base above to answer questions. "
+            "If the answer is not in the knowledge base, use a cookie-themed deflection "
+            "as described in the guardrails. Never speculate."
+        ),
     )
 
     try:
@@ -71,7 +159,7 @@ def answer_question(question: str, user_name: str = "community member") -> str:
         log.error("AI engine error: %s", exc)
         return (
             "Hmm, the cookie jar seems to be stuck right now. "
-            "Please try again in a moment! 🍪"
+            "Please try again in a moment! \U0001f36a"
         )
 
 
@@ -79,19 +167,19 @@ def adjust_post(original_post: str, instruction: str, user_name: str = "admin") 
     """
     Adjust or rewrite a post based on an instruction, using the knowledge base
     to ensure factual accuracy about CookieNet / $COOK.
+    Guardrails are applied to keep the output on-brand and safe.
     """
     knowledge = knowledge_store.get_knowledge_context(max_chars=6000)
     model = config.AI_MODEL
 
-    system_prompt = (
-        f"{config.BOT_PERSONA}\n\n"
-        "--- KNOWLEDGE BASE ---\n"
-        f"{knowledge}\n"
-        "--- END KNOWLEDGE BASE ---\n\n"
-        "You are helping an admin adjust or improve a community post. "
-        "Apply the requested changes while keeping the content accurate, "
-        "on-brand (Cookie Boy / $COOK / CookieNet themed), and community-friendly. "
-        "Return ONLY the revised post text, nothing else."
+    system_prompt = _build_system_prompt(
+        knowledge=knowledge,
+        extra_instruction=(
+            "You are helping an admin adjust or improve a community post. "
+            "Apply the requested changes while keeping the content accurate, "
+            "on-brand (Cookie Boy / $COOK / CookieNet themed), and community-friendly. "
+            "Return ONLY the revised post text, nothing else."
+        ),
     )
 
     user_message = (
@@ -119,6 +207,7 @@ def adjust_post(original_post: str, instruction: str, user_name: str = "admin") 
 def generate_summary(content: str, max_sentences: int = 5) -> str:
     """
     Generate a short summary of ingested content for confirmation messages.
+    Guardrails are NOT applied here — this is an internal admin-only utility.
     """
     model = config.AI_MODEL
     try:
