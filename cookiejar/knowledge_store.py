@@ -26,6 +26,8 @@ log = logging.getLogger(__name__)
 #   updated_at  : str   — ISO-8601 UTC timestamp of last modification
 #   status      : str   — "active" | "stale" | "archived"
 #   tags        : list  — optional list of topic tags
+#   priority    : str   — "normal" | "pinned"
+#   added_by    : str   — telegram user id of who added it (for deletelast auth)
 
 
 def _now_iso() -> str:
@@ -85,6 +87,8 @@ def add_entry(
     content: str,
     title: str = "",
     tags: Optional[list[str]] = None,
+    priority: str = "normal",
+    added_by: Optional[str] = None,
 ) -> dict:
     """
     Add a new entry (or update an existing one by source).
@@ -109,11 +113,45 @@ def add_entry(
         "updated_at": _now_iso(),
         "status": "active",
         "tags": tags or [],
+        "priority": priority,
+        "added_by": added_by or "",
     }
     entries.append(entry)
     _write_entries(config.ACTIVE_CACHE, entries)
     log.info("Added entry %s from %s", entry_id, source)
     return entry
+
+
+def delete_last_entry(requesting_user_id: str, is_admin: bool, window_seconds: int = 300) -> dict:
+    """
+    Delete the most recently added active entry if:
+    - It was added within the last `window_seconds` (default 5 min), AND
+    - The requester is either an admin OR the original poster.
+    Returns {"success": bool, "entry": dict|None, "reason": str}
+    """
+    entries = _read_entries(config.ACTIVE_CACHE)
+    # Find the most recently ingested active entry
+    active = [e for e in entries if e.get("status") == "active"]
+    if not active:
+        return {"success": False, "entry": None, "reason": "No active entries to delete."}
+
+    last = max(active, key=lambda e: e.get("ingested_at", ""))
+    ingested = datetime.fromisoformat(last["ingested_at"])
+    age_seconds = (datetime.now(timezone.utc) - ingested).total_seconds()
+
+    if age_seconds > window_seconds:
+        mins = int(window_seconds / 60)
+        return {"success": False, "entry": last, "reason": f"Last entry is older than {mins} minutes — cannot delete."}
+
+    # Check authorization: admin OR original poster
+    if not is_admin and last.get("added_by") != str(requesting_user_id):
+        return {"success": False, "entry": last, "reason": "You can only delete entries you added yourself."}
+
+    # Remove it
+    remaining = [e for e in entries if e["id"] != last["id"]]
+    _write_entries(config.ACTIVE_CACHE, remaining)
+    log.info("Deleted last entry %s by user %s", last["id"], requesting_user_id)
+    return {"success": True, "entry": last, "reason": "Deleted."}
 
 
 def mark_stale(entry_id: str) -> bool:

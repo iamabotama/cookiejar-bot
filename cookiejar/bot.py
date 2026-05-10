@@ -81,7 +81,8 @@ def _set_bot_commands_primary(app: Application) -> None:
         BotCommand("archive", "[Admin] Archive an entry"),
         BotCommand("syncnow", "[Admin] Force GitHub sync"),
         BotCommand("stalecheck", "[Admin] Run auto stale check"),
-        BotCommand("cookiejar", "[Admin] Drop a reply or text into the knowledge jar"),
+        BotCommand("cj", "[Admin] Universal intake: ingest/note/pin/stale/deletelast/status/help"),
+        BotCommand("cookiejar", "[Admin] Alias for /cj — drop content into the knowledge jar"),
         BotCommand("whoami", "Show your Telegram user ID and admin status"),
         BotCommand("chatid", "[Admin] Get this channel's Telegram ID"),
         BotCommand("setmode", "[Admin] Switch between answer and listen modes"),
@@ -96,7 +97,8 @@ def _set_bot_commands_listener(app: Application) -> None:
         BotCommand("help", "Show commands"),
         BotCommand("save", "[Admin] Save replied message to knowledge base"),
         BotCommand("saveingest", "[Admin] Ingest a URL into knowledge base"),
-        BotCommand("cookiejar", "[Admin] Drop a reply into the knowledge jar"),
+        BotCommand("cj", "[Admin] Universal intake: ingest/note/pin/stale/deletelast/status/help"),
+        BotCommand("cookiejar", "[Admin] Alias for /cj — drop content into the knowledge jar"),
         BotCommand("setmode", "[Admin] Switch between listen and answer modes"),
     ]
 
@@ -134,6 +136,7 @@ def build_primary_app() -> Application:
     app.add_handler(CommandHandler("syncnow", cmd_syncnow))
     app.add_handler(CommandHandler("stalecheck", cmd_stalecheck))
     app.add_handler(CommandHandler("cookiejar", cmd_cookiejar))
+    app.add_handler(CommandHandler("cj", cmd_cookiejar))
     app.add_handler(CommandHandler("debug", cmd_debug))
     app.add_handler(CommandHandler("whoami", cmd_whoami))
     app.add_handler(CommandHandler("chatid", cmd_chatid))
@@ -158,6 +161,7 @@ def build_listener_app() -> Application:
     app.add_handler(CommandHandler("save", cmd_save))
     app.add_handler(CommandHandler("saveingest", cmd_saveingest))
     app.add_handler(CommandHandler("cookiejar", listener_cookiejar))
+    app.add_handler(CommandHandler("cj", listener_cookiejar))
     app.add_handler(CommandHandler("setmode", listener_setmode))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, listener_message))
 

@@ -148,51 +148,219 @@ async def cmd_saveingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 # ---------------------------------------------------------------------------
 async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Listener-mode /cookiejar: saves a replied-to message or inline text
-    into the shared knowledge base so the primary bot can use it.
-
-    Usage:
-      - Reply to any message with /cookiejar to save it.
-      - /cookiejar <text> to save inline text directly.
+    /cookiejar (/cj) in listener mode — Universal intake command.
+    Sub-commands: ingest, note, pin, stale, deletelast, status, help
+    No sub-command + reply: saves the replied-to message.
     """
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
-        await update.message.reply_text("🚫 Admin only.")
-        return
 
-    user_name = update.effective_user.first_name or "admin"
-    inline_text = " ".join(context.args).strip() if context.args else ""
-    replied_text = ""
-    if update.message.reply_to_message:
-        replied_text = (update.message.reply_to_message.text or "").strip()
+    is_admin = _is_admin(update.effective_user.id)
+    user = update.effective_user
+    user_name = user.first_name or "admin"
+    user_id = str(user.id)
 
-    content = inline_text or replied_text
+    args = context.args or []
+    sub = args[0].lower() if args else ""
 
-    if not content:
+    # ── /cj help ────────────────────────────────────────────────────────────
+    if sub == "help":
         await update.message.reply_text(
-            "Reply to a message with `/cookiejar` to drop it in the jar, "
-            "or use `/cookiejar <text>` to save text directly.",
+            "🍪 *CookieJar (/cj) Commands*\n\n"
+            "*Save content:*\n"
+            "• `/cj` — Save the replied-to message\n"
+            "• `/cj ingest <text>` — Save inline text\n"
+            "• `/cj ingest <url>` — Scrape URL and save as knowledge entry\n"
+            "• `/cj note <text>` — Save text tagged as an admin note\n"
+            "• `/cj pin <text or reply>` — Save and mark as high-priority\n\n"
+            "*Manage entries:*\n"
+            "• `/cj stale <id>` — Mark an entry as stale\n"
+            "• `/cj deletelast` — Delete the last entry (within 5 min)\n\n"
+            "*Info:*\n"
+            "• `/cj status` — Show mode, entry count, last sync\n"
+            "• `/cj help` — This message\n",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
-    result = knowledge_store.add_entry(
-        content=content,
-        source="telegram_cookiejar_listener",
-        title=f"Saved by {user_name} via /cookiejar (listener)",
-        tags=["cookiejar", "admin", "listener"],
-    )
-
-    if result["success"]:
+    # ── /cj status ──────────────────────────────────────────────────────────
+    if sub == "status":
+        counts = knowledge_store.entry_count()
+        mode = config.BOT_MODE.upper()
         await update.message.reply_text(
-            f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{result['entry_id']}`",
+            f"🍪 *CookieJar Status*\n"
+            f"• Mode: `{mode}`\n"
+            f"• Active entries: `{counts.get('active', 0)}`\n"
+            f"• Stale entries: `{counts.get('stale', 0)}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # All commands below require admin
+    if not is_admin:
+        await update.message.reply_text("🚫 Admin only.")
+        return
+
+    # ── /cj deletelast ──────────────────────────────────────────────────────
+    if sub == "deletelast":
+        result = knowledge_store.delete_last_entry(
+            requesting_user_id=user_id,
+            is_admin=is_admin,
+            window_seconds=300,
+        )
+        if result["success"]:
+            entry = result["entry"]
+            await update.message.reply_text(
+                f"🗑️ *Last entry deleted.*\n"
+                f"ID: `{entry['id']}`\n"
+                f"Title: {entry.get('title', '?')}",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            github_sync.sync_knowledge_to_github()
+        else:
+            await update.message.reply_text(f"❌ {result['reason']}")
+        return
+
+    # ── /cj stale <id> ──────────────────────────────────────────────────────
+    if sub == "stale":
+        if len(args) < 2:
+            await update.message.reply_text("Usage: `/cj stale <entry_id>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        entry_id = args[1]
+        if knowledge_store.mark_stale(entry_id):
+            await update.message.reply_text(f"✅ Entry `{entry_id}` marked as stale.", parse_mode=ParseMode.MARKDOWN)
+            github_sync.sync_knowledge_to_github()
+        else:
+            await update.message.reply_text(f"❌ Entry `{entry_id}` not found.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    # ── /cj note <text> ─────────────────────────────────────────────────────
+    if sub == "note":
+        note_text = " ".join(args[1:]).strip()
+        if not note_text:
+            await update.message.reply_text("Usage: `/cj note <your note text>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        entry = knowledge_store.add_entry(
+            content=note_text,
+            source="admin_note_listener",
+            title=f"Note by {user_name}",
+            tags=["note", "admin", "listener"],
+            added_by=user_id,
+        )
+        await update.message.reply_text(
+            f"🍪 *Note saved!*\nEntry ID: `{entry.get('id', '?')}`",
             parse_mode=ParseMode.MARKDOWN,
         )
         await _send_nom_nom(update)
         github_sync.sync_knowledge_to_github()
-    else:
-        await update.message.reply_text(f"❌ Failed: {result['error']}")
+        return
+
+    # ── /cj pin <text or reply> ─────────────────────────────────────────────
+    if sub == "pin":
+        pin_text = " ".join(args[1:]).strip()
+        if not pin_text and update.message.reply_to_message:
+            pin_text = (update.message.reply_to_message.text or "").strip()
+        if not pin_text:
+            await update.message.reply_text(
+                "Usage: `/cj pin <text>` or reply to a message with `/cj pin`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+        entry = knowledge_store.add_entry(
+            content=pin_text,
+            source="admin_pin_listener",
+            title=f"Pinned by {user_name}",
+            tags=["pinned", "admin", "listener"],
+            priority="pinned",
+            added_by=user_id,
+        )
+        await update.message.reply_text(
+            f"🍪 *Pinned!* 📌\nEntry ID: `{entry.get('id', '?')}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await _send_nom_nom(update)
+        github_sync.sync_knowledge_to_github()
+        return
+
+    # ── /cj ingest <url or text> ────────────────────────────────────────────
+    if sub == "ingest":
+        ingest_arg = " ".join(args[1:]).strip()
+        if not ingest_arg:
+            await update.message.reply_text(
+                "Usage:\n"
+                "• `/cj ingest <url>` — scrape a website\n"
+                "• `/cj ingest <text>` — save text directly",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+        if ingest_arg.startswith("http://") or ingest_arg.startswith("https://"):
+            await update.message.reply_text(f"🌐 Scraping `{ingest_arg}`...", parse_mode=ParseMode.MARKDOWN)
+            result = ingestion.ingest_url(ingest_arg)
+            if result["success"]:
+                entry = knowledge_store.add_entry(
+                    content=result["content"],
+                    source=ingest_arg,
+                    title=result.get("title", ingest_arg),
+                    tags=["web", "ingested", "listener"],
+                    added_by=user_id,
+                )
+                await update.message.reply_text(
+                    f"🍪 *Ingested!*\nTitle: {result.get('title', ingest_arg)}\nEntry ID: `{entry.get('id', '?')}`",
+                    parse_mode=ParseMode.MARKDOWN,
+                )
+                await _send_nom_nom(update)
+                github_sync.sync_knowledge_to_github()
+            else:
+                await update.message.reply_text(f"❌ Failed to scrape: {result.get('error', 'unknown error')}")
+        else:
+            entry = knowledge_store.add_entry(
+                content=ingest_arg,
+                source="telegram_cj_ingest_listener",
+                title=f"Saved by {user_name} via /cj",
+                tags=["cookiejar", "admin", "manual", "listener"],
+                added_by=user_id,
+            )
+            await update.message.reply_text(
+                f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{entry.get('id', '?')}`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            await _send_nom_nom(update)
+            github_sync.sync_knowledge_to_github()
+        return
+
+    # ── No sub-command: save replied-to message ─────────────────────────────
+    replied_text = ""
+    if update.message.reply_to_message:
+        replied_text = (update.message.reply_to_message.text or "").strip()
+
+    if not replied_text:
+        await update.message.reply_text(
+            "🍪 *CookieJar (/cj) Commands*\n\n"
+            "• `/cj ingest <text or url>` — save text or scrape URL\n"
+            "• `/cj note <text>` — save admin note\n"
+            "• `/cj pin <text>` — save as high-priority\n"
+            "• `/cj stale <id>` — mark entry stale\n"
+            "• `/cj deletelast` — delete last entry\n"
+            "• `/cj status` — show status\n"
+            "• `/cj help` — full help\n"
+            "\nOr reply to any message with `/cj` to save it.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    entry = knowledge_store.add_entry(
+        content=replied_text,
+        source="telegram_cj_reply_listener",
+        title=f"Saved by {user_name} via /cj (listener)",
+        tags=["cookiejar", "admin", "reply", "listener"],
+        added_by=user_id,
+    )
+    await update.message.reply_text(
+        f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{entry.get('id', '?')}`",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+    await _send_nom_nom(update)
+    github_sync.sync_knowledge_to_github()
 
 
 # ---------------------------------------------------------------------------
