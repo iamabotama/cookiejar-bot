@@ -197,6 +197,30 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         return
 
+    # ── No sub-command + reply: save replied-to message (admin only) ─────────
+    if not sub and update.message.reply_to_message:
+        if not is_admin:
+            await update.message.reply_text("🚫 Admin only command.")
+            return
+        replied_text = (update.message.reply_to_message.text or "").strip()
+        if replied_text:
+            entry = knowledge_store.add_entry(
+                content=replied_text,
+                source="telegram_cj_reply_listener",
+                title=f"Saved by {user_name} via /cj (listener)",
+                tags=["cookiejar", "admin", "reply", "listener"],
+                added_by=user_id,
+            )
+            await update.message.reply_text(
+                f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{entry.get('id', '?')}`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            await _send_nom_nom(update)
+            github_sync.sync_knowledge_to_github()
+        else:
+            await update.message.reply_text("⚠️ The replied-to message has no text content.")
+        return
+
     # All commands below require admin
     if not is_admin:
         await update.message.reply_text("🚫 Admin only.")
@@ -372,39 +396,6 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             parse_mode=ParseMode.MARKDOWN,
         )
         return
-        # ── No sub-command: save replied-to message ─────────────────────────────
-    replied_text = ""
-    if update.message.reply_to_message:
-        replied_text = (update.message.reply_to_message.text or "").strip()
-
-    if not replied_text:
-        await update.message.reply_text(
-            "🍪 *CookieJar (/cj) Commands*\n\n"
-            "• `/cj ingest <text or url>` — save text or scrape URL\n"
-            "• `/cj note <text>` — save admin note\n"
-            "• `/cj pin <text>` — save as high-priority\n"
-            "• `/cj stale <id>` — mark entry stale\n"
-            "• `/cj deletelast` — delete last entry\n"
-            "• `/cj status` — show status\n"
-            "• `/cj help` — full help\n"
-            "\nOr reply to any message with `/cj` to save it.",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
-
-    entry = knowledge_store.add_entry(
-        content=replied_text,
-        source="telegram_cj_reply_listener",
-        title=f"Saved by {user_name} via /cj (listener)",
-        tags=["cookiejar", "admin", "reply", "listener"],
-        added_by=user_id,
-    )
-    await update.message.reply_text(
-        f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{entry.get('id', '?')}`",
-        parse_mode=ParseMode.MARKDOWN,
-    )
-    await _send_nom_nom(update)
-    github_sync.sync_knowledge_to_github()
 
 
 # ---------------------------------------------------------------------------

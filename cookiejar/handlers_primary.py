@@ -471,6 +471,21 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         return
 
+    # ── No sub-command + reply: save replied-to message (admin only) ─────────
+    if not sub and update.message.reply_to_message:
+        if not is_admin:
+            await update.message.reply_text("🚫 Admin only command.")
+            return
+        replied_text = (update.message.reply_to_message.text or "").strip()
+        if replied_text:
+            await _cj_save(update, context, replied_text,
+                           source="telegram_cj_reply",
+                           tags=["cookiejar", "admin", "reply"],
+                           user_name=user_name, user_id=user_id)
+        else:
+            await update.message.reply_text("⚠️ The replied-to message has no text content.")
+        return
+
     # All commands below require admin
     if not is_admin:
         await update.message.reply_text("🚫 Admin only command.")
