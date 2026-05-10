@@ -1,0 +1,45 @@
+URL: https://cookiequads.vercel.app/
+Title: Cookiequad Multisig
+
+Cookiequad Multisig
+Cookiequad Multisig
+Creating teams, managing members and handling proposals on-chain.
+Create your team, set permissions, and manage vaults with an intuitive interface.
+0
+FEES
+ALL
+TRANSPARENT
+on
+COOKIE
+CHAIN
+Create Multisig
+Manage Existing Multisig
+Community Wallet
+How It Works
+Understand the multisig flow
+1. Create a multisig with members, permissions, threshold, and optional authorities.
+2. Fund a vault PDA and create proposals for transfers or configuration changes.
+3. Members approve or reject proposals based on their voting permission.
+4. Once a proposal is approved and any time lock has passed, an executor can run it.
+What You Can Do
+Core capabilities included
+Create autonomous or controlled multisigs.
+View members, permissions, vault balances, spending limits, and proposals.
+Create vault transfer proposals and config proposals.
+Approve, reject, cancel, activate, and execute proposals.
+Use existing spending limits directly from the UI.
+Home
+Start here
+Use this page to understand the app and navigate the workflow.
+Create Multisig
+Set up your team
+Add members, choose permissions, set threshold, and create a new multisig with Backpack.
+Go to creation page
+Community Wallet
+View Cookiequad treasury
+Inspect the community multisig in read-only mode, or connect a member wallet to approve and execute allowed actions.
+Go to community page
+Manage Multisig
+Handle proposals
+Load an existing multisig PDA and manage proposals, vault transfers, members, and limits.
+Go to management page
