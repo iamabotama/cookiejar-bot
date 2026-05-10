@@ -60,6 +60,27 @@ ADMIN_USER_IDS: list[int] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Channel allowlist
+# ---------------------------------------------------------------------------
+# Comma-separated Telegram chat IDs this bot instance is allowed to respond in.
+# If left empty, the bot responds in ALL chats it is added to.
+# Use negative IDs for groups/channels (e.g. -1001234567890).
+# Get a chat ID by adding @mewantcookiesbot to the channel and sending /chatid
+ALLOWED_CHAT_IDS: list[int] = [
+    int(cid.strip())
+    for cid in os.environ.get("ALLOWED_CHAT_IDS", "").split(",")
+    if cid.strip().lstrip("-").isdigit()
+]
+
+
+def is_allowed_chat(chat_id: int) -> bool:
+    """Return True if the chat is allowed, or if no allowlist is configured."""
+    if not ALLOWED_CHAT_IDS:
+        return True  # no restriction — respond everywhere
+    return chat_id in ALLOWED_CHAT_IDS
+
+
+# ---------------------------------------------------------------------------
 # Community identity (used in AI system prompt)
 # ---------------------------------------------------------------------------
 COMMUNITY_NAME: str = "Cookie Boy"

@@ -47,7 +47,6 @@ async def _send_nom_nom(update: Update, caption: str = "") -> None:
                 caption=caption or _nom_nom_caption(),
             )
     else:
-        # Fallback if image file is missing
         await update.message.reply_text(caption or _nom_nom_caption())
 
 log = logging.getLogger(__name__)
@@ -57,18 +56,17 @@ def _is_admin(user_id: int) -> bool:
     return user_id in config.ADMIN_USER_IDS
 
 
-def _fmt_entry_list(entries: list[dict], status: str = "active") -> str:
+def _fmt_entry_list(entries: list, status: str) -> str:
     if not entries:
-        return f"No {status} entries found in the cookie jar."
-    lines = [f"*{status.upper()} ENTRIES ({len(entries)})*\n"]
-    for e in entries[:20]:  # cap display at 20
-        lines.append(
-            f"• `{e['id']}` — {e['title'][:50]}\n"
-            f"  Source: {e['source'][:60]}\n"
-            f"  Added: {e['ingested_at'][:10]}"
-        )
+        return f"No {status} entries found."
+    lines = [f"*{status.upper()} entries ({len(entries)}):*"]
+    for e in entries[:20]:
+        ts = e.get("ingested_at", "?")[:10]
+        title = e.get("title", "untitled")[:50]
+        eid = e.get("id", "?")[:8]
+        lines.append(f"• `{eid}` [{ts}] {title}")
     if len(entries) > 20:
-        lines.append(f"\n_...and {len(entries) - 20} more._")
+        lines.append(f"_...and {len(entries) - 20} more_")
     return "\n".join(lines)
 
 
@@ -76,12 +74,14 @@ def _fmt_entry_list(entries: list[dict], status: str = "active") -> str:
 # /start
 # ---------------------------------------------------------------------------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     await update.message.reply_text(
-        "🍪 *Welcome to CookieJar!*\n\n"
-        "I'm the official AI assistant for the *Cookie Boy* community on CookieNet.\n\n"
-        "Ask me anything about *$COOK*, *CookieNet*, or the Cookie Boy community — "
-        "just type your question or reply to any message with `@CookieJarBot`.\n\n"
-        "Type /help to see all available commands.",
+        "🍪 *NOM NOM NOM! Me CookieJar!*\n\n"
+        "Me the official Cookie Boy ($COOK) community assistant!\n"
+        "Me know everything about CookieNet and $COOK.\n\n"
+        "Ask me anything with `/ask <your question>` or just `@mewantcookiesbot <question>`!\n\n"
+        "Type `/help` to see all commands.",
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -90,29 +90,32 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # /help
 # ---------------------------------------------------------------------------
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     is_admin = _is_admin(update.effective_user.id)
-    public_cmds = (
+    public = (
         "🍪 *CookieJar Commands*\n\n"
-        "*Anyone can use:*\n"
-        "/start — Welcome message\n"
-        "/help — This help message\n"
-        "/ask `<question>` — Ask CookieJar a question\n"
-        "/stats — Show knowledge base stats\n\n"
-        "You can also just ask a question directly, or reply to any message "
-        "with `@CookieJarBot <instruction>` to adjust it."
+        "*Public:*\n"
+        "• `/ask <question>` — Ask me about $COOK or CookieNet\n"
+        "• `/stats` — See how many cookies are in the jar\n"
+        "• `/start` — Welcome message\n"
+        "• `/help` — This message\n"
     )
-    admin_cmds = (
-        "\n\n*Admin only:*\n"
-        "/ingest `<url>` — Ingest a website into the knowledge base\n"
-        "/addpost `<text>` — Add a manual post to the knowledge base\n"
-        "/listentries — List active knowledge entries\n"
-        "/liststale — List stale knowledge entries\n"
-        "/stale `<id>` — Mark an entry as stale\n"
-        "/archive `<id>` — Archive an entry\n"
-        "/syncnow — Force sync knowledge base to/from GitHub\n"
-        "/stalcheck — Run automatic stale check\n"
+    admin = (
+        "\n*Admin only:*\n"
+        "• `/ingest <url>` — Scrape a website into the knowledge base\n"
+        "• `/addpost <text>` — Add manual text to the knowledge base\n"
+        "• `/cookiejar` — Reply to any message to save it to the jar\n"
+        "• `/listentries` — List active knowledge entries\n"
+        "• `/liststale` — List stale entries\n"
+        "• `/stale <id>` — Mark an entry as stale\n"
+        "• `/archive <id>` — Archive an entry\n"
+        "• `/syncnow` — Force GitHub sync\n"
+        "• `/stalecheck` — Run auto stale check\n"
+        "• `/chatid` — Get this channel's Telegram ID\n"
+        "• `/setmode answer|listen|status` — Switch bot mode\n"
     )
-    msg = public_cmds + (admin_cmds if is_admin else "")
+    msg = public + (admin if is_admin else "")
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
@@ -120,6 +123,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # /ask
 # ---------------------------------------------------------------------------
 async def cmd_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     question = " ".join(context.args) if context.args else ""
     if not question:
         await update.message.reply_text(
@@ -127,7 +132,6 @@ async def cmd_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode=ParseMode.MARKDOWN,
         )
         return
-
     await update.message.reply_text("🍪 Reaching into the cookie jar...")
     user_name = update.effective_user.first_name or "community member"
     answer = ai_engine.answer_question(question, user_name=user_name)
@@ -138,12 +142,15 @@ async def cmd_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # /stats
 # ---------------------------------------------------------------------------
 async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    counts = knowledge_store.entry_count()
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    stats = knowledge_store.get_stats()
     await update.message.reply_text(
-        f"📊 *CookieJar Knowledge Stats*\n\n"
-        f"Active entries: {counts.get('active', 0)}\n"
-        f"Stale entries: {counts.get('stale', 0)}\n"
-        f"Archived entries: {counts.get('archived', 0)}",
+        f"🍪 *Cookie Jar Stats*\n\n"
+        f"Active entries: `{stats.get('active', 0)}`\n"
+        f"Stale entries: `{stats.get('stale', 0)}`\n"
+        f"Archived entries: `{stats.get('archived', 0)}`\n"
+        f"Total sources ingested: `{stats.get('sources', 0)}`",
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -152,35 +159,28 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # /ingest (admin)
 # ---------------------------------------------------------------------------
 async def cmd_ingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
-
     url = context.args[0] if context.args else ""
-    if not url or not url.startswith("http"):
+    if not url:
         await update.message.reply_text(
             "Usage: `/ingest <url>`\nExample: `/ingest https://cookienet.io/about`",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
-
-    msg = await update.message.reply_text(f"🍪 Ingesting `{url}` ...", parse_mode=ParseMode.MARKDOWN)
+    msg = await update.message.reply_text(f"🍪 Ingesting `{url}`...", parse_mode=ParseMode.MARKDOWN)
     result = ingestion.ingest_url(url)
-
     if result["success"]:
-        summary = ai_engine.generate_summary(
-            knowledge_store.load_active()[-1]["content"] if knowledge_store.load_active() else ""
-        )
         await msg.edit_text(
-            f"✅ *Ingested successfully!*\n\n"
-            f"Title: {result['title']}\n"
-            f"Entry ID: `{result['entry_id']}`\n"
-            f"Characters stored: {result['char_count']}\n\n"
-            f"*Summary:* {summary}",
+            f"✅ Ingested!\nEntry ID: `{result['entry_id']}`\n"
+            f"Characters: `{result.get('char_count', '?')}`",
             parse_mode=ParseMode.MARKDOWN,
         )
-        # Send the Cookie Boy nom-nom image as a fun confirmation
         await _send_nom_nom(update)
+        github_sync.sync_knowledge_to_github()
     else:
         await msg.edit_text(f"❌ Ingestion failed: {result['error']}")
 
@@ -189,33 +189,30 @@ async def cmd_ingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 # /addpost (admin)
 # ---------------------------------------------------------------------------
 async def cmd_addpost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
-
     text = " ".join(context.args) if context.args else ""
     if not text:
         await update.message.reply_text(
-            "Usage: `/addpost <your text here>`\n"
-            "Or reply to a message with `/addpost` to add that message's content.",
+            "Usage: `/addpost <text>`\nExample: `/addpost CookieNet launches mainnet on June 1st`",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
-
-    user_name = update.effective_user.username or update.effective_user.first_name
-    result = ingestion.ingest_text(
+    user_name = update.effective_user.first_name or "admin"
+    result = knowledge_store.add_entry(
         content=text,
-        source_label=f"manual_post:{user_name}",
-        title=f"Manual post by {user_name}",
+        source=f"telegram_admin_post",
+        title=f"Admin post by {user_name}",
         tags=["manual", "admin"],
     )
-
     if result["success"]:
         await update.message.reply_text(
             f"✅ Post added to the cookie jar!\nEntry ID: `{result['entry_id']}`",
             parse_mode=ParseMode.MARKDOWN,
         )
-        # Send the Cookie Boy nom-nom image as a fun confirmation
         await _send_nom_nom(update)
     else:
         await update.message.reply_text(f"❌ Failed to add post: {result['error']}")
@@ -225,6 +222,8 @@ async def cmd_addpost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # /listentries and /liststale (admin)
 # ---------------------------------------------------------------------------
 async def cmd_listentries(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
@@ -235,6 +234,8 @@ async def cmd_listentries(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 
 async def cmd_liststale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
@@ -248,6 +249,8 @@ async def cmd_liststale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # /stale (admin)
 # ---------------------------------------------------------------------------
 async def cmd_stale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
@@ -265,6 +268,8 @@ async def cmd_stale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # /archive (admin)
 # ---------------------------------------------------------------------------
 async def cmd_archive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
@@ -283,6 +288,8 @@ async def cmd_archive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # /syncnow (admin)
 # ---------------------------------------------------------------------------
 async def cmd_syncnow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
@@ -296,6 +303,8 @@ async def cmd_syncnow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # /stalecheck (admin)
 # ---------------------------------------------------------------------------
 async def cmd_stalecheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
     if not _is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Admin only command.")
         return
@@ -306,13 +315,135 @@ async def cmd_stalecheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 # ---------------------------------------------------------------------------
+# /cookiejar (admin) — reply to any message to save it into the knowledge base
+# ---------------------------------------------------------------------------
+async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    /cookiejar — When used as a reply to a message, saves that message's text
+    into the knowledge base. Works in both group channels and DMs.
+
+    Usage:
+      - Reply to any message with /cookiejar to save it.
+      - /cookiejar <text> to save inline text directly (no reply needed).
+    """
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Admin only command.")
+        return
+
+    user_name = update.effective_user.first_name or "admin"
+    inline_text = " ".join(context.args).strip() if context.args else ""
+    replied_text = ""
+    if update.message.reply_to_message:
+        replied_text = (update.message.reply_to_message.text or "").strip()
+
+    content = inline_text or replied_text
+
+    if not content:
+        await update.message.reply_text(
+            "Usage:\n"
+            "• Reply to any message with `/cookiejar` to drop it in the jar.\n"
+            "• Or: `/cookiejar <text>` to save text directly.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    result = knowledge_store.add_entry(
+        content=content,
+        source="telegram_cookiejar_command",
+        title=f"Saved by {user_name} via /cookiejar",
+        tags=["cookiejar", "admin", "manual"],
+    )
+
+    if result["success"]:
+        await update.message.reply_text(
+            f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{result['entry_id']}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await _send_nom_nom(update)
+        github_sync.sync_knowledge_to_github()
+    else:
+        await update.message.reply_text(f"❌ Failed to save: {result['error']}")
+
+
+# ---------------------------------------------------------------------------
+# /chatid — returns the current chat's Telegram ID (for ALLOWED_CHAT_IDS config)
+# ---------------------------------------------------------------------------
+async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Returns the chat ID of the current group/channel. Useful for setting ALLOWED_CHAT_IDS."""
+    chat = update.effective_chat
+    await update.message.reply_text(
+        f"🍪 *Chat ID for this channel:*\n`{chat.id}`\n\n"
+        f"Add this to your `.env` file:\n"
+        f"`ALLOWED_CHAT_IDS={chat.id}`\n\n"
+        f"For multiple channels, separate with commas:\n"
+        f"`ALLOWED_CHAT_IDS={chat.id},-1009876543210`",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+# ---------------------------------------------------------------------------
+# /setmode — switch between listen and answer modes at runtime (admin only)
+# ---------------------------------------------------------------------------
+async def cmd_setmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    /setmode listen  — switch to listener mode (stops answering questions)
+    /setmode answer  — switch back to primary/answer mode
+    /setmode status  — show the current mode
+    """
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Admin only command.")
+        return
+
+    arg = (context.args[0].lower() if context.args else "status")
+
+    if arg in ("listen", "listener"):
+        config.BOT_MODE = "listener"
+        await update.message.reply_text(
+            "🔇 *Mode set to LISTENER.*\n"
+            "I will no longer answer questions in this session. "
+            "I will only save messages when admins use `/cookiejar` or `/save`.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    elif arg in ("answer", "primary"):
+        config.BOT_MODE = "primary"
+        await update.message.reply_text(
+            "🍪 *Mode set to ANSWER (primary).*\n"
+            "I'm back! Ask me anything about $COOK and CookieNet. NOM NOM NOM!",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    elif arg == "status":
+        mode = config.BOT_MODE
+        emoji = "🔇" if mode == "listener" else "🍪"
+        await update.message.reply_text(
+            f"{emoji} *Current mode:* `{mode.upper()}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    else:
+        await update.message.reply_text(
+            "Usage:\n"
+            "• `/setmode answer` — enable Q&A mode\n"
+            "• `/setmode listen` — enable listener/silent mode\n"
+            "• `/setmode status` — show current mode",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Message handler: @mention replies and plain questions
 # ---------------------------------------------------------------------------
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    # In listener mode, ignore all non-command messages
+    if config.BOT_MODE == "listener":
+        return
     message: Message = update.message
     if not message or not message.text:
         return
-
     text = message.text.strip()
     bot_username = f"@{config.BOT_USERNAME}"
     user_name = update.effective_user.first_name or "community member"
@@ -346,113 +477,3 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await message.reply_text("🍪 Reaching into the cookie jar...")
         answer = ai_engine.answer_question(text, user_name=user_name)
         await message.reply_text(answer)
-
-
-# ---------------------------------------------------------------------------
-# /cookiejar (admin) — reply to any message to save it into the knowledge base
-# ---------------------------------------------------------------------------
-async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    /cookiejar — When used as a reply to a message, saves that message's text
-    into the knowledge base. Works in both group channels and DMs.
-
-    Usage:
-      - Reply to any message with /cookiejar to save it.
-      - /cookiejar <text> to save inline text directly (no reply needed).
-    """
-    if not _is_admin(update.effective_user.id):
-        await update.message.reply_text("🚫 Admin only command.")
-        return
-
-    user_name = update.effective_user.first_name or "admin"
-
-    # Priority 1: inline text after the command
-    inline_text = " ".join(context.args).strip() if context.args else ""
-
-    # Priority 2: replied-to message text
-    replied_text = ""
-    if update.message.reply_to_message:
-        replied_text = (update.message.reply_to_message.text or "").strip()
-
-    content = inline_text or replied_text
-
-    if not content:
-        await update.message.reply_text(
-            "Usage:\n"
-            "• Reply to any message with `/cookiejar` to drop it in the jar.\n"
-            "• Or: `/cookiejar <text>` to save text directly.",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
-
-    result = knowledge_store.add_entry(
-        content=content,
-        source="telegram_cookiejar_command",
-        title=f"Saved by {user_name} via /cookiejar",
-        tags=["cookiejar", "admin", "manual"],
-    )
-
-    if result["success"]:
-        await update.message.reply_text(
-            f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{result['entry_id']}`",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        await _send_nom_nom(update)
-        github_sync.sync_knowledge_to_github()
-    else:
-        await update.message.reply_text(f"❌ Failed to save: {result['error']}")
-
-
-# ---------------------------------------------------------------------------
-# /cookiejar (admin) — reply to any message to save it into the knowledge base
-# ---------------------------------------------------------------------------
-async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """
-    /cookiejar — When used as a reply to a message, saves that message's text
-    into the knowledge base. Works in both group channels and DMs.
-
-    Usage:
-      - Reply to any message with /cookiejar to save it.
-      - /cookiejar <text> to save inline text directly (no reply needed).
-    """
-    if not _is_admin(update.effective_user.id):
-        await update.message.reply_text("🚫 Admin only command.")
-        return
-
-    user_name = update.effective_user.first_name or "admin"
-
-    # Priority 1: inline text after the command
-    inline_text = " ".join(context.args).strip() if context.args else ""
-
-    # Priority 2: replied-to message text
-    replied_text = ""
-    if update.message.reply_to_message:
-        replied_text = (update.message.reply_to_message.text or "").strip()
-
-    content = inline_text or replied_text
-
-    if not content:
-        await update.message.reply_text(
-            "Usage:\n"
-            "• Reply to any message with `/cookiejar` to drop it in the jar.\n"
-            "• Or: `/cookiejar <text>` to save text directly.",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        return
-
-    result = knowledge_store.add_entry(
-        content=content,
-        source="telegram_cookiejar_command",
-        title=f"Saved by {user_name} via /cookiejar",
-        tags=["cookiejar", "admin", "manual"],
-    )
-
-    if result["success"]:
-        await update.message.reply_text(
-            f"🍪 *Dropped in the cookie jar!*\nEntry ID: `{result['entry_id']}`",
-            parse_mode=ParseMode.MARKDOWN,
-        )
-        await _send_nom_nom(update)
-        github_sync.sync_knowledge_to_github()
-    else:
-        await update.message.reply_text(f"❌ Failed to save: {result['error']}")
