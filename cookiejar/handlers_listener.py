@@ -63,6 +63,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         public = (
             "🔇 *CookieJar — Listener Mode*\n"
             "_Silent mode: I collect data but don\'t answer questions._\n\n"
+            "• `/cj announce` — Post a public intro message\n"
             "• `/cj status` — Show mode and entry counts\n"
             "• `/help` — This message\n"
         )
@@ -99,6 +100,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "• `/cj pin <text or reply>` — Save as high-priority\n"
             "• `/cj stale <id>` — Mark an entry as stale\n"
             "• `/cj deletelast` — Delete the last entry (within 5 min)\n"
+            "• `/cj announce` — Post a public intro message\n"
             "• `/cj status` — Show mode and entry counts\n"
             "• `/listentries` — List active knowledge entries\n"
             "• `/liststale` — List stale entries\n"
@@ -271,6 +273,22 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     # ── /cj deletelast ──────────────────────────────────────────────────────
+    if sub == "announce":
+        announce_msg = (
+            "🍪 *Meet CookieJar — your Cookie Chain assistant!*\n\n"
+            "I\'m here to answer questions about Cookie Chain, $COOK, the ecosystem, "
+            "and anything in the knowledge base.\n\n"
+            "*How to use me:*\n"
+            "• Ask a question: `/ask What is Cookie Chain?`\n"
+            "• Or just mention me: `@mewantcookiesbot <your question>`\n\n"
+            "🗣️ *Got questions? Head over to the* *Ask the Cookie Jar* *channel — "
+            "that\'s the right place to chat with me and keep things tidy here!*\n\n"
+            "_I\'m powered by the official Cookie Chain knowledge base and get smarter "
+            "as more content is added._ 🍪"
+        )
+        await update.message.reply_text(announce_msg, parse_mode=ParseMode.MARKDOWN)
+        return
+
     if sub == "deletelast":
         result = knowledge_store.delete_last_entry(
             requesting_user_id=user_id,
