@@ -498,3 +498,45 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await message.reply_text("🍪 Reaching into the cookie jar...")
         answer = ai_engine.answer_question(text, user_name=user_name)
         await message.reply_text(answer)
+
+
+# ---------------------------------------------------------------------------
+# /debug — dump full runtime config (no auth required so we can diagnose)
+# ---------------------------------------------------------------------------
+async def cmd_debug(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Dumps runtime config for diagnostics. Available to everyone."""
+    import os
+    user = update.effective_user
+    chat = update.effective_chat
+    sender_chat = update.message.sender_chat  # set when posting as a channel/group
+
+    token_preview = config.BOT_TOKEN[:10] + "..." if config.BOT_TOKEN else "NOT SET"
+    grok_preview  = config.AI_API_KEY[:10] + "..." if config.AI_API_KEY else "NOT SET"
+    github_preview = config.GITHUB_TOKEN[:10] + "..." if config.GITHUB_TOKEN else "NOT SET"
+
+    lines = [
+        "🍪 *CookieJar Debug Dump*",
+        "",
+        "*Runtime config:*",
+        f"• BOT\\_TOKEN: `{token_preview}`",
+        f"• GROK\\_API\\_KEY: `{grok_preview}`",
+        f"• GITHUB\\_TOKEN: `{github_preview}`",
+        f"• GITHUB\\_REPO: `{config.GITHUB_REPO}`",
+        f"• BOT\\_MODE: `{config.BOT_MODE}`",
+        f"• BOT\\_USERNAME: `{config.BOT_USERNAME}`",
+        f"• ADMIN\\_USER\\_IDS: `{config.ADMIN_USER_IDS}`",
+        f"• ALLOWED\\_CHAT\\_IDS: `{config.ALLOWED_CHAT_IDS}`",
+        "",
+        "*Caller info:*",
+        f"• effective\\_user.id: `{user.id if user else 'None'}`",
+        f"• effective\\_user.username: `@{user.username if user else 'None'}`",
+        f"• sender\\_chat: `{sender_chat.id if sender_chat else 'None'}` ({sender_chat.type if sender_chat else 'N/A'})",
+        f"• chat.id: `{chat.id}`",
+        f"• chat.type: `{chat.type}`",
+        f"• is\\_admin: `{_is_admin(user.id) if user else False}`",
+        "",
+        "*Env check (raw os.environ):*",
+        f"• ADMIN\\_USER\\_IDS env: `{os.environ.get('ADMIN_USER_IDS', 'NOT SET')}`",
+        f"• BOT\\_MODE env: `{os.environ.get('BOT_MODE', 'NOT SET')}`",
+    ]
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)

@@ -17,6 +17,7 @@ from telegram.ext import (
 
 from . import config, github_sync, knowledge_store
 from .handlers_primary import (
+    cmd_debug,
     cmd_whoami,
     cmd_cookiejar,
     cmd_chatid,
@@ -133,6 +134,7 @@ def build_primary_app() -> Application:
     app.add_handler(CommandHandler("syncnow", cmd_syncnow))
     app.add_handler(CommandHandler("stalecheck", cmd_stalecheck))
     app.add_handler(CommandHandler("cookiejar", cmd_cookiejar))
+    app.add_handler(CommandHandler("debug", cmd_debug))
     app.add_handler(CommandHandler("whoami", cmd_whoami))
     app.add_handler(CommandHandler("chatid", cmd_chatid))
     app.add_handler(CommandHandler("setmode", cmd_setmode))
