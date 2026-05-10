@@ -368,6 +368,27 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 # ---------------------------------------------------------------------------
+# /whoami — debug command to show the calling user's Telegram ID
+# ---------------------------------------------------------------------------
+async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Returns the calling user's Telegram ID. Useful for diagnosing admin access issues."""
+    user = update.effective_user
+    chat = update.effective_chat
+    is_admin = _is_admin(user.id)
+    await update.message.reply_text(
+        f"🍪 *Your Telegram info:*\n"
+        f"User ID: `{user.id}`\n"
+        f"Username: @{user.username or 'none'}\n"
+        f"First name: {user.first_name}\n"
+        f"Admin access: {'✅ YES' if is_admin else '❌ NO'}\n\n"
+        f"*This chat:*\n"
+        f"Chat ID: `{chat.id}`\n"
+        f"Chat type: {chat.type}",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+# ---------------------------------------------------------------------------
 # /chatid — returns the current chat's Telegram ID (for ALLOWED_CHAT_IDS config)
 # ---------------------------------------------------------------------------
 async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
