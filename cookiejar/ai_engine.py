@@ -19,7 +19,8 @@ log = logging.getLogger(__name__)
 # Guardrails loader — reads the latest versioned guardrails file
 # ---------------------------------------------------------------------------
 
-_GUARDRAILS_DIR = Path(__file__).resolve().parent
+# Use bundled module dir for PyInstaller compatibility
+_GUARDRAILS_DIR = config.COOKIEJAR_MODULE_DIR
 _GUARDRAILS_CACHE: Optional[str] = None
 
 

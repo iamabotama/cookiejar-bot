@@ -15,7 +15,7 @@ from . import ai_engine, config, knowledge_store, github_sync, ingestion, ingest
 
 log = logging.getLogger(__name__)
 
-COOKIE_GIF: Path = Path(__file__).resolve().parent.parent / "assets" / "cookie_reaction.gif"
+COOKIE_GIF: Path = config.ASSETS_DIR / "cookie_reaction.gif"
 
 
 def _is_admin(user_id: int) -> bool:

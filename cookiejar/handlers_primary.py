@@ -13,7 +13,7 @@ from telegram.constants import ChatAction, ParseMode
 from . import config, ingestion, knowledge_store, ai_engine, github_sync, ingestion_crawler
 
 # Path to the Cookie Boy nom-nom image bundled with the bot
-COOKIE_GIF: Path = Path(__file__).resolve().parent.parent / "assets" / "cookie_reaction.gif"
+COOKIE_GIF: Path = config.ASSETS_DIR / "cookie_reaction.gif"
 
 # Rotating captions shown with the nom-nom image on each ingestion
 NOM_NOM_CAPTIONS = [

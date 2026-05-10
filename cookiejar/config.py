@@ -4,7 +4,45 @@ Loads all settings from environment variables with sensible defaults.
 """
 
 import os
+import sys
 from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# PyInstaller bundle detection
+# ---------------------------------------------------------------------------
+def _get_base_dir() -> Path:
+    """
+    Return the base directory for the application.
+    When running from a PyInstaller bundle, this is the temp extraction dir.
+    When running from source, this is the project root.
+    """
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        # Running from PyInstaller bundle
+        return Path(sys._MEIPASS)
+    else:
+        # Running from source
+        return Path(__file__).resolve().parent.parent
+
+
+def _get_runtime_dir() -> Path:
+    """
+    Return the directory where the executable (or script) is located.
+    This is where .env, knowledge/, and sources/ should be placed.
+    """
+    if getattr(sys, 'frozen', False):
+        # Running from PyInstaller bundle - use exe location
+        return Path(sys.executable).resolve().parent
+    else:
+        # Running from source
+        return Path(__file__).resolve().parent.parent
+
+
+# Base dir for bundled resources (guardrails, assets)
+BUNDLE_DIR: Path = _get_base_dir()
+
+# Runtime dir for user data (.env, knowledge, sources)
+RUNTIME_DIR: Path = _get_runtime_dir()
 
 # ---------------------------------------------------------------------------
 # Bot identity
@@ -35,13 +73,17 @@ GITHUB_REPO: str = os.environ.get("GITHUB_REPO", "iamabotama/cookiejar-bot")
 GITHUB_BRANCH: str = os.environ.get("GITHUB_BRANCH", "main")
 
 # ---------------------------------------------------------------------------
-# Local cache
+# Local cache (uses runtime dir so data persists outside the bundle)
 # ---------------------------------------------------------------------------
-BASE_DIR: Path = Path(__file__).resolve().parent.parent
-CACHE_DIR: Path = BASE_DIR / "knowledge"
+BASE_DIR: Path = RUNTIME_DIR  # Backwards compatibility alias
+CACHE_DIR: Path = RUNTIME_DIR / "knowledge"
 ACTIVE_CACHE: Path = CACHE_DIR / "active.jsonl"
 ARCHIVE_DIR: Path = CACHE_DIR / "archive"
-SOURCES_DIR: Path = BASE_DIR / "sources"
+SOURCES_DIR: Path = RUNTIME_DIR / "sources"
+
+# Bundled module resources (guardrails, etc.)
+COOKIEJAR_MODULE_DIR: Path = BUNDLE_DIR / "cookiejar"
+ASSETS_DIR: Path = BUNDLE_DIR / "assets"
 
 # How often (seconds) the bot re-syncs the local cache from GitHub
 CACHE_SYNC_INTERVAL: int = int(os.environ.get("CACHE_SYNC_INTERVAL", "1800"))  # 30 min
