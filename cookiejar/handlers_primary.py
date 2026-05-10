@@ -134,67 +134,66 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 # ---------------------------------------------------------------------------
 # /help
 # ---------------------------------------------------------------------------
-async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not config.is_allowed_chat(update.effective_chat.id):
-        return
-    is_admin = _is_admin(update.effective_user.id)
+async def _build_help_text(is_admin: bool) -> str:
+    """Build the unified help text based on current bot mode and admin status."""
     mode = config.BOT_MODE
-
     if mode == "listener":
-        # In listener mode, only show listener-relevant commands
-        public_listener = (
+        public = (
             "🔇 *CookieJar — Listener Mode*\n"
-            "_I am currently in silent mode. I collect cookies but don't answer questions._\n\n"
-            "• `/cookiejar` — Reply to any message to save it to the jar\n"
+            "_Silent mode: I collect data but don\'t answer questions._\n\n"
+            "• `/cj status` — Show mode and entry counts\n"
             "• `/help` — This message\n"
         )
-        admin_listener = (
-            "\n*Admin only:*\n"
-            "• `/cookiejar` — Reply to any message to save it to the jar\n"
-            "• `/addpost <text>` — Add manual text to the knowledge base\n"
-            "• `/ingest <url>` — Scrape a website into the knowledge base\n"
+        admin = (
+            "\n*Admin commands:*\n"
+            "• `/cj` — Reply to any message to save it 🍪\n"
+            "• `/cj ingest <text or url>` — Save text or scrape a URL\n"
+            "• `/cj crawl <url>` — Crawl entire site and ingest all pages\n"
+            "• `/cj note <text>` — Save an admin note\n"
+            "• `/cj pin <text or reply>` — Save as high-priority\n"
+            "• `/cj stale <id>` — Mark an entry as stale\n"
+            "• `/cj deletelast` — Delete the last entry (within 5 min)\n"
             "• `/listentries` — List active knowledge entries\n"
             "• `/liststale` — List stale entries\n"
-            "• `/stale <id>` — Mark an entry as stale\n"
-            "• `/archive <id>` — Archive an entry\n"
             "• `/syncnow` — Force GitHub sync\n"
-            "• `/chatid` — Get this channel's Telegram ID\n"
+            "• `/chatid` — Get this channel\'s Telegram ID\n"
             "• `/setmode answer` — Switch to answer mode\n"
-            "• `/setmode status` — Check current mode\n"
         )
-        msg = public_listener + (admin_listener if is_admin else "")
     else:
-        # In answer/primary mode, show full Q&A commands
         public = (
-            "🍪 *CookieJar Commands*\n\n"
+            "🍪 *CookieJar — Answer Mode*\n\n"
             "*Public:*\n"
-            "• `/ask <question>` — Ask me about $COOK or CookieNet\n"
+            "• `/ask <question>` — Ask me about $COOK or Cookie Chain\n"
             "• `/stats` — See how many cookies are in the jar\n"
             "• `/start` — Welcome message\n"
             "• `/help` — This message\n"
         )
         admin = (
-            "\n*Admin only:*\n"
-            "• `/ingest <url>` — Scrape a website into the knowledge base\n"
-            "• `/addpost <text>` — Add manual text to the knowledge base\n"
-            "• `/cookiejar` — Reply to any message to save it to the jar\n"
+            "\n*Admin commands:*\n"
+            "• `/cj` — Reply to any message to save it 🍪\n"
+            "• `/cj ingest <text or url>` — Save text or scrape a URL\n"
+            "• `/cj crawl <url>` — Crawl entire site and ingest all pages\n"
+            "• `/cj note <text>` — Save an admin note\n"
+            "• `/cj pin <text or reply>` — Save as high-priority\n"
+            "• `/cj stale <id>` — Mark an entry as stale\n"
+            "• `/cj deletelast` — Delete the last entry (within 5 min)\n"
+            "• `/cj status` — Show mode and entry counts\n"
             "• `/listentries` — List active knowledge entries\n"
             "• `/liststale` — List stale entries\n"
-            "• `/stale <id>` — Mark an entry as stale\n"
-            "• `/archive <id>` — Archive an entry\n"
             "• `/syncnow` — Force GitHub sync\n"
             "• `/stalecheck` — Run auto stale check\n"
-            "• `/chatid` — Get this channel's Telegram ID\n"
-            "• `/setmode listen|status` — Switch bot mode\n"
+            "• `/chatid` — Get this channel\'s Telegram ID\n"
+            "• `/setmode listen` — Switch to listener mode\n"
         )
-        msg = public + (admin if is_admin else "")
+    return public + (admin if is_admin else "")
 
+
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    is_admin = await _is_chat_admin(update, context)
+    msg = await _build_help_text(is_admin)
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
-
-
-# ---------------------------------------------------------------------------
-# /ask
-# ---------------------------------------------------------------------------
 async def cmd_ask(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
@@ -457,7 +456,9 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # ── /cj help ────────────────────────────────────────────────────────────
     if sub == "help":
-        await update.message.reply_text(CJ_HELP, parse_mode=ParseMode.MARKDOWN)
+        is_admin_for_help = await _is_chat_admin(update, context)
+        msg = await _build_help_text(is_admin_for_help)
+        await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     # ── /cj status ──────────────────────────────────────────────────────────
@@ -644,7 +645,9 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         replied_text = (update.message.reply_to_message.text or "").strip()
 
     if not replied_text:
-        await update.message.reply_text(CJ_HELP, parse_mode=ParseMode.MARKDOWN)
+        is_admin_for_help = await _is_chat_admin(update, context)
+        msg = await _build_help_text(is_admin_for_help)
+        await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     await _cj_save(update, context, replied_text,

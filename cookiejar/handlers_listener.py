@@ -57,15 +57,57 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    await update.message.reply_text(
-        "🔇 *CookieJar — Listener Mode Commands*\n\n"
-        "• `/save` — Reply to a message to save it\n"
-        "• `/saveingest <url>` — Ingest a URL into the knowledge base\n"
-        "• `/cookiejar` — Drop a reply or text into the jar\n"
-        "• `/setmode answer` — Switch to Q&A mode\n"
-        "• `/setmode listen` — Stay in silent mode\n",
-        parse_mode=ParseMode.MARKDOWN,
-    )
+    is_admin = _is_admin(update.effective_user.id)
+    mode = config.BOT_MODE
+    if mode == "listener":
+        public = (
+            "🔇 *CookieJar — Listener Mode*\n"
+            "_Silent mode: I collect data but don\'t answer questions._\n\n"
+            "• `/cj status` — Show mode and entry counts\n"
+            "• `/help` — This message\n"
+        )
+        admin = (
+            "\n*Admin commands:*\n"
+            "• `/cj` — Reply to any message to save it 🍪\n"
+            "• `/cj ingest <text or url>` — Save text or scrape a URL\n"
+            "• `/cj crawl <url>` — Crawl entire site and ingest all pages\n"
+            "• `/cj note <text>` — Save an admin note\n"
+            "• `/cj pin <text or reply>` — Save as high-priority\n"
+            "• `/cj stale <id>` — Mark an entry as stale\n"
+            "• `/cj deletelast` — Delete the last entry (within 5 min)\n"
+            "• `/listentries` — List active knowledge entries\n"
+            "• `/liststale` — List stale entries\n"
+            "• `/syncnow` — Force GitHub sync\n"
+            "• `/chatid` — Get this channel\'s Telegram ID\n"
+            "• `/setmode answer` — Switch to answer mode\n"
+        )
+    else:
+        public = (
+            "🍪 *CookieJar — Answer Mode*\n\n"
+            "*Public:*\n"
+            "• `/ask <question>` — Ask me about $COOK or Cookie Chain\n"
+            "• `/stats` — See how many cookies are in the jar\n"
+            "• `/start` — Welcome message\n"
+            "• `/help` — This message\n"
+        )
+        admin = (
+            "\n*Admin commands:*\n"
+            "• `/cj` — Reply to any message to save it 🍪\n"
+            "• `/cj ingest <text or url>` — Save text or scrape a URL\n"
+            "• `/cj crawl <url>` — Crawl entire site and ingest all pages\n"
+            "• `/cj note <text>` — Save an admin note\n"
+            "• `/cj pin <text or reply>` — Save as high-priority\n"
+            "• `/cj stale <id>` — Mark an entry as stale\n"
+            "• `/cj deletelast` — Delete the last entry (within 5 min)\n"
+            "• `/cj status` — Show mode and entry counts\n"
+            "• `/listentries` — List active knowledge entries\n"
+            "• `/liststale` — List stale entries\n"
+            "• `/syncnow` — Force GitHub sync\n"
+            "• `/chatid` — Get this channel\'s Telegram ID\n"
+            "• `/setmode listen` — Switch to listener mode\n"
+        )
+    msg = public + (admin if is_admin else "")
+    await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
 # ---------------------------------------------------------------------------
