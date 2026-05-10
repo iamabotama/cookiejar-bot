@@ -136,29 +136,57 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
     is_admin = _is_admin(update.effective_user.id)
-    public = (
-        "🍪 *CookieJar Commands*\n\n"
-        "*Public:*\n"
-        "• `/ask <question>` — Ask me about $COOK or CookieNet\n"
-        "• `/stats` — See how many cookies are in the jar\n"
-        "• `/start` — Welcome message\n"
-        "• `/help` — This message\n"
-    )
-    admin = (
-        "\n*Admin only:*\n"
-        "• `/ingest <url>` — Scrape a website into the knowledge base\n"
-        "• `/addpost <text>` — Add manual text to the knowledge base\n"
-        "• `/cookiejar` — Reply to any message to save it to the jar\n"
-        "• `/listentries` — List active knowledge entries\n"
-        "• `/liststale` — List stale entries\n"
-        "• `/stale <id>` — Mark an entry as stale\n"
-        "• `/archive <id>` — Archive an entry\n"
-        "• `/syncnow` — Force GitHub sync\n"
-        "• `/stalecheck` — Run auto stale check\n"
-        "• `/chatid` — Get this channel's Telegram ID\n"
-        "• `/setmode answer|listen|status` — Switch bot mode\n"
-    )
-    msg = public + (admin if is_admin else "")
+    mode = config.BOT_MODE
+
+    if mode == "listener":
+        # In listener mode, only show listener-relevant commands
+        public_listener = (
+            "🔇 *CookieJar — Listener Mode*\n"
+            "_I am currently in silent mode. I collect cookies but don't answer questions._\n\n"
+            "• `/cookiejar` — Reply to any message to save it to the jar\n"
+            "• `/help` — This message\n"
+        )
+        admin_listener = (
+            "\n*Admin only:*\n"
+            "• `/cookiejar` — Reply to any message to save it to the jar\n"
+            "• `/addpost <text>` — Add manual text to the knowledge base\n"
+            "• `/ingest <url>` — Scrape a website into the knowledge base\n"
+            "• `/listentries` — List active knowledge entries\n"
+            "• `/liststale` — List stale entries\n"
+            "• `/stale <id>` — Mark an entry as stale\n"
+            "• `/archive <id>` — Archive an entry\n"
+            "• `/syncnow` — Force GitHub sync\n"
+            "• `/chatid` — Get this channel's Telegram ID\n"
+            "• `/setmode answer` — Switch to answer mode\n"
+            "• `/setmode status` — Check current mode\n"
+        )
+        msg = public_listener + (admin_listener if is_admin else "")
+    else:
+        # In answer/primary mode, show full Q&A commands
+        public = (
+            "🍪 *CookieJar Commands*\n\n"
+            "*Public:*\n"
+            "• `/ask <question>` — Ask me about $COOK or CookieNet\n"
+            "• `/stats` — See how many cookies are in the jar\n"
+            "• `/start` — Welcome message\n"
+            "• `/help` — This message\n"
+        )
+        admin = (
+            "\n*Admin only:*\n"
+            "• `/ingest <url>` — Scrape a website into the knowledge base\n"
+            "• `/addpost <text>` — Add manual text to the knowledge base\n"
+            "• `/cookiejar` — Reply to any message to save it to the jar\n"
+            "• `/listentries` — List active knowledge entries\n"
+            "• `/liststale` — List stale entries\n"
+            "• `/stale <id>` — Mark an entry as stale\n"
+            "• `/archive <id>` — Archive an entry\n"
+            "• `/syncnow` — Force GitHub sync\n"
+            "• `/stalecheck` — Run auto stale check\n"
+            "• `/chatid` — Get this channel's Telegram ID\n"
+            "• `/setmode listen|status` — Switch bot mode\n"
+        )
+        msg = public + (admin if is_admin else "")
+
     await update.message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
