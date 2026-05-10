@@ -52,8 +52,51 @@ async def _send_nom_nom(update: Update, caption: str = "") -> None:
 log = logging.getLogger(__name__)
 
 
+# Telegram's anonymous admin ID - only group admins can post with this ID
+ANONYMOUS_ADMIN_ID = 1087968824
+
+
 def _is_admin(user_id: int) -> bool:
+    """Check if user ID is in the ADMIN_USER_IDS env list."""
     return user_id in config.ADMIN_USER_IDS
+
+
+async def _is_chat_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """
+    Check if the sender is an admin of the current chat.
+    This handles anonymous admin posting (where Telegram uses @GroupAnonymousBot).
+    Returns True if:
+      - User ID is in ADMIN_USER_IDS, OR
+      - User ID is the anonymous admin ID (only admins can post anonymously), OR
+      - User is a Telegram admin/owner of the current group/channel
+    """
+    user = update.effective_user
+    chat = update.effective_chat
+
+    # First check env list
+    if user.id in config.ADMIN_USER_IDS:
+        return True
+
+    # Check for anonymous admin posting - if someone posts with this ID,
+    # they MUST be an admin (only admins can post anonymously in Telegram)
+    if user.id == ANONYMOUS_ADMIN_ID:
+        log.info(f"User authorized as anonymous admin in chat {chat.id}")
+        return True
+
+    # For private chats, only env list matters
+    if chat.type == "private":
+        return False
+
+    # For groups/channels, check if user is a Telegram admin
+    try:
+        member = await context.bot.get_chat_member(chat.id, user.id)
+        if member.status in ("administrator", "creator"):
+            log.info(f"User {user.id} authorized as Telegram chat admin in {chat.id}")
+            return True
+    except Exception as e:
+        log.warning(f"Could not check chat admin status: {e}")
+
+    return False
 
 
 def _fmt_entry_list(entries: list, status: str) -> str:
@@ -161,7 +204,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_ingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     url = context.args[0] if context.args else ""
@@ -191,7 +234,7 @@ async def cmd_ingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def cmd_addpost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     text = " ".join(context.args) if context.args else ""
@@ -224,7 +267,7 @@ async def cmd_addpost(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def cmd_listentries(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     entries = knowledge_store.list_entries("active")
@@ -236,7 +279,7 @@ async def cmd_listentries(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def cmd_liststale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     entries = knowledge_store.list_entries("stale")
@@ -251,7 +294,7 @@ async def cmd_liststale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def cmd_stale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     entry_id = context.args[0] if context.args else ""
@@ -270,7 +313,7 @@ async def cmd_stale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_archive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     entry_id = context.args[0] if context.args else ""
@@ -290,7 +333,7 @@ async def cmd_archive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def cmd_syncnow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     msg = await update.message.reply_text("🔄 Syncing with GitHub...")
@@ -305,7 +348,7 @@ async def cmd_syncnow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def cmd_stalecheck(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
     count = knowledge_store.auto_stale_check()
@@ -328,7 +371,7 @@ async def cmd_cookiejar(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
 
@@ -374,13 +417,16 @@ async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     """Returns the calling user's Telegram ID. Useful for diagnosing admin access issues."""
     user = update.effective_user
     chat = update.effective_chat
-    is_admin = _is_admin(user.id)
+    in_env_list = _is_admin(user.id)
+    is_chat_admin = await _is_chat_admin(update, context)
     await update.message.reply_text(
         f"🍪 *Your Telegram info:*\n"
         f"User ID: `{user.id}`\n"
         f"Username: @{user.username or 'none'}\n"
         f"First name: {user.first_name}\n"
-        f"Admin access: {'✅ YES' if is_admin else '❌ NO'}\n\n"
+        f"In ADMIN_USER_IDS: {'✅ YES' if in_env_list else '❌ NO'}\n"
+        f"Is chat admin: {'✅ YES' if is_chat_admin else '❌ NO'}\n"
+        f"*Bot admin access: {'✅ YES' if is_chat_admin else '❌ NO'}*\n\n"
         f"*This chat:*\n"
         f"Chat ID: `{chat.id}`\n"
         f"Chat type: {chat.type}",
@@ -415,7 +461,7 @@ async def cmd_setmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     """
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_chat_admin(update, context):
         await update.message.reply_text("🚫 Admin only command.")
         return
 

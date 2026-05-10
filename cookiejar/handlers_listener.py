@@ -11,7 +11,7 @@ from telegram import Update, Message, InputFile
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
-from . import config, knowledge_store, github_sync
+from . import config, knowledge_store, github_sync, ingestion
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +45,23 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "I'm in silent mode here. I won't answer questions in this channel.\n\n"
         "Use `/save` or `/cookiejar` (as a reply) to drop important messages into the knowledge jar.\n"
         "Use `/setmode answer` to switch me to Q&A mode.",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+# ---------------------------------------------------------------------------
+# /help
+# ---------------------------------------------------------------------------
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    await update.message.reply_text(
+        "🔇 *CookieJar — Listener Mode Commands*\n\n"
+        "• `/save` — Reply to a message to save it\n"
+        "• `/saveingest <url>` — Ingest a URL into the knowledge base\n"
+        "• `/cookiejar` — Drop a reply or text into the jar\n"
+        "• `/setmode answer` — Switch to Q&A mode\n"
+        "• `/setmode listen` — Stay in silent mode\n",
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -90,6 +107,40 @@ async def cmd_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         github_sync.sync_knowledge_to_github()
     else:
         await message.reply_text(f"❌ Failed to save: {result['error']}")
+
+
+# ---------------------------------------------------------------------------
+# /saveingest (admin) — silently ingest a URL
+# ---------------------------------------------------------------------------
+async def cmd_saveingest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    if not _is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Only admins can ingest URLs.")
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "Usage: `/saveingest <url>`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    url = context.args[0].strip()
+    await update.message.reply_text(f"🔄 Ingesting `{url}`...", parse_mode=ParseMode.MARKDOWN)
+
+    result = ingestion.ingest_url(url)
+    if result["success"]:
+        await update.message.reply_text(
+            f"🍪 *Ingested!*\n"
+            f"Title: {result['title']}\n"
+            f"Entry ID: `{result['entry_id']}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        await _send_nom_nom(update)
+        github_sync.sync_knowledge_to_github()
+    else:
+        await update.message.reply_text(f"❌ Failed: {result['error']}")
 
 
 # ---------------------------------------------------------------------------
