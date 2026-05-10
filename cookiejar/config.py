@@ -17,7 +17,7 @@ BOT_USERNAME: str = os.environ.get("TELEGRAM_BOT_USERNAME", "CookieJarBot")  # w
 #   primary  — answers questions, ingests URLs, handles @mentions & commands
 #   listener — silently captures admin-flagged messages and pushes to repo
 # ---------------------------------------------------------------------------
-BOT_MODE: str = os.environ.get("BOT_MODE", "primary").lower()
+BOT_MODE: str = os.environ.get("BOT_MODE", "listener").lower()
 
 # ---------------------------------------------------------------------------
 # AI backend  (xAI Grok — OpenAI-compatible)
