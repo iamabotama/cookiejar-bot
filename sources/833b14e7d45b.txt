@@ -1,0 +1,79 @@
+URL: https://www.gorbagana.cash/
+Title: Gorbagana Cash | GCASH
+
+Gorbagana Cash | GCASH
+Same History
+Community Hard Fork
+GCASH
+New Cookie
+Future
+Community Fork
+Gorbagana Cash is the first community-led hard fork of the original Gorbagana chain, born from a backup snapshot after a halt. We don't need dramas, we want cookies.
+Read the Story
+Enter Ecosystem
+Current Slot
+--
+live chain position
+Block Height
+--
+confirmed history
+TPS
+--
+tx per second
+RPC Speed
+Loading
+rpc status
+Bridge from
+Solana
+to Gorbagana Cash now
+Bridge
+Community rule
+We don't need dramas,
+we need cookies.
+The old control model ended. The community forked, kept the history, and chose a better vibe.
+The backup survived.
+The Gorbagana community went through a difficult chapter: drama, instability, and uncertainty made the future unclear.
+When the original chain was halted by Rick, the community could have lost the shared state. Instead, a backup snapshot became the foundation for a community-led hard fork.
+Same chain history. Different control model. Bigger cookie jar.
+How the fork happened
+Trashnet
+CookieShot
+Trashnet
+GCASH
+History
+Snapshot
+Halted
+GCASH
+One dev's trash was stinky, so we made our own cookie jar.
+How GCASH was born
+0
+1
+Drama
+The original path got noisy, unstable, and hard to trust.
+0
+2
+Halt
+The chain stopped under single-operator control.
+0
+3
+Snapshot
+A backup preserved the shared history.
+0
+4
+Fork
+The community used it to create Gorbagana Cash.
+0
+5
+Future
+The next chapter belongs to builders, validators, and users.
+Build Here
+A chain for people who stayed.
+Validators, builders, users, and cookie enjoyers kept the history alive. Now the ecosystem gets a cleaner community-owned lane.
+Validators
+Builders
+Explorer
+Bridge
+Docs
+Governance
+Explore Ecosystem
+Open Docs
