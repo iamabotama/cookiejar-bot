@@ -12,7 +12,7 @@ from telegram.constants import ParseMode
 from . import config, ingestion, knowledge_store, ai_engine, github_sync, ingestion_crawler
 
 # Path to the Cookie Boy nom-nom image bundled with the bot
-NOM_NOM_IMAGE: Path = Path(__file__).resolve().parent.parent / "assets" / "nom_nom.png"
+COOKIE_GIF: Path = Path(__file__).resolve().parent.parent / "assets" / "cookie_reaction.gif"
 
 # Rotating captions shown with the nom-nom image on each ingestion
 NOM_NOM_CAPTIONS = [
@@ -39,15 +39,17 @@ def _nom_nom_caption() -> str:
 
 
 async def _send_nom_nom(update: Update, caption: str = "") -> None:
-    """Send the Cookie Boy eating image with an optional caption."""
-    if NOM_NOM_IMAGE.exists():
-        with NOM_NOM_IMAGE.open("rb") as img:
-            await update.message.reply_photo(
-                photo=InputFile(img, filename="nom_nom.png"),
-                caption=caption or _nom_nom_caption(),
+    """Send a cookie reaction GIF randomly 1-in-10 times, otherwise just text."""
+    import random
+    text = caption or _nom_nom_caption()
+    if random.randint(1, 10) == 1 and COOKIE_GIF.exists():
+        with COOKIE_GIF.open("rb") as gif:
+            await update.message.reply_animation(
+                animation=InputFile(gif, filename="cookie_reaction.gif"),
+                caption=text,
             )
     else:
-        await update.message.reply_text(caption or _nom_nom_caption())
+        await update.message.reply_text(text)
 
 log = logging.getLogger(__name__)
 

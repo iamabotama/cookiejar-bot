@@ -15,7 +15,7 @@ from . import config, knowledge_store, github_sync, ingestion, ingestion_crawler
 
 log = logging.getLogger(__name__)
 
-NOM_NOM_IMAGE: Path = Path(__file__).resolve().parent.parent / "assets" / "nom_nom.png"
+COOKIE_GIF: Path = Path(__file__).resolve().parent.parent / "assets" / "cookie_reaction.gif"
 
 
 def _is_admin(user_id: int) -> bool:
@@ -23,15 +23,17 @@ def _is_admin(user_id: int) -> bool:
 
 
 async def _send_nom_nom(update: Update) -> None:
-    """Send the Cookie Boy eating image."""
-    if NOM_NOM_IMAGE.exists():
-        with NOM_NOM_IMAGE.open("rb") as img:
-            await update.message.reply_photo(
-                photo=InputFile(img, filename="nom_nom.png"),
-                caption="NOM NOM NOM! 🍪 Cookie Boy ate that data! $COOK!",
+    """Send a cookie reaction GIF randomly 1-in-10 times, otherwise just text."""
+    import random
+    text = "NOM NOM NOM! 🍪 Dropped in the cookie jar!"
+    if random.randint(1, 10) == 1 and COOKIE_GIF.exists():
+        with COOKIE_GIF.open("rb") as gif:
+            await update.message.reply_animation(
+                animation=InputFile(gif, filename="cookie_reaction.gif"),
+                caption=text,
             )
     else:
-        await update.message.reply_text("NOM NOM NOM! 🍪 Dropped in the cookie jar!")
+        await update.message.reply_text(text)
 
 
 # ---------------------------------------------------------------------------
