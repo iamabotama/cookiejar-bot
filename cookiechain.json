@@ -1,6 +1,23 @@
 {
   "twitter_url": "https://x.com/TheCookieChain",
   "telegram_url": "https://t.me/+YulIZhqjDrw3NDcx",
-  "token_url": "https://cookiechain.io",
-  "ca": "PASTE_CONTRACT_ADDRESS_HERE"
+  "ca": "PASTE_CONTRACT_ADDRESS_HERE",
+  "links": [
+    {
+      "label": "Gorbagana Cash",
+      "url": "https://www.gorbagana.cash/"
+    },
+    {
+      "label": "CookieScan",
+      "url": "https://cookiescan.io"
+    },
+    {
+      "label": "Cookoven",
+      "url": "https://cookoven.xyz/"
+    },
+    {
+      "label": "CandyShop",
+      "url": "https://swap.cookiescan.io/"
+    }
+  ]
 }
