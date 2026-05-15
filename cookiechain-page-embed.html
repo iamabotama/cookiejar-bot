@@ -1,28 +1,42 @@
-<!-- CookieChain Widget — paste this into any page -->
-<div id="cookiechain-widget"></div>
+<div id="ck-widget"></div>
 <script>
 (function () {
 
-  var JSON_URL = 'https://cdn.jsdelivr.net/gh/iamabotama/cookiejar-bot@latest/cookiechain.json';
+  var DATA_URL = 'https://raw.githubusercontent.com/iamabotama/cookiejar-bot/main/cookiechain.json';
 
   var X_ICON = '<svg style="width:22px;height:22px;flex-shrink:0;" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.736-8.849L1.254 2.25H8.08l4.253 5.622 5.912-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
   var TG_ICON = '<svg style="width:22px;height:22px;flex-shrink:0;" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>';
+  var LINK_ICON = '<svg style="width:11px;height:11px;margin-left:4px;opacity:.7;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
 
   function buildWidget(data) {
-    var target = document.getElementById('cookiechain-widget');
+    var target = document.getElementById('ck-widget');
     if (!target) return;
 
     var ca = data.ca || 'Coming soon';
 
-    var html =
-      '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;display:inline-block;width:100%;max-width:420px;box-sizing:border-box;">'
+    // Build links row
+    var linksHTML = '';
+    if (data.links && data.links.length) {
+      var pills = data.links.map(function (link) {
+        return '<a href="' + link.url + '" target="_blank" rel="noopener"'
+          + ' style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:20px;'
+          + 'font-size:11px;font-weight:600;text-decoration:none;color:#1e40af;'
+          + 'background:#dbeafe;border:1px solid #bfdbfe;white-space:nowrap;">'
+          + link.label + LINK_ICON + '</a>';
+      }).join('');
 
-        // --- Twitter + Telegram buttons side by side ---
+      linksHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;">' + pills + '</div>';
+    }
+
+    target.innerHTML =
+      '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;width:100%;max-width:420px;box-sizing:border-box;">'
+
+        // Twitter + Telegram
         + '<div style="display:flex;gap:10px;margin-bottom:10px;">'
 
           + '<a href="' + data.twitter_url + '" target="_blank" rel="noopener"'
           + ' style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;'
-          + 'text-decoration:none;background:#000;color:#fff;border:2px solid #3b82f6;">'
+          + 'text-decoration:none;background:#000;color:#fff;border:2px solid #3b82f6;box-sizing:border-box;">'
           + X_ICON
           + '<span style="display:flex;flex-direction:column;text-align:left;">'
           + '<span style="font-size:10px;opacity:.7;line-height:1;">Follow us on</span>'
@@ -31,7 +45,7 @@
 
           + '<a href="' + data.telegram_url + '" target="_blank" rel="noopener"'
           + ' style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;'
-          + 'text-decoration:none;background:#229ED9;color:#fff;border:2px solid #3b82f6;">'
+          + 'text-decoration:none;background:#229ED9;color:#fff;border:2px solid #3b82f6;box-sizing:border-box;">'
           + TG_ICON
           + '<span style="display:flex;flex-direction:column;text-align:left;">'
           + '<span style="font-size:10px;opacity:.7;line-height:1;">Join us on</span>'
@@ -40,8 +54,8 @@
 
         + '</div>'
 
-        // --- $COOK token bar ---
-        + '<div style="background:linear-gradient(135deg,#7c3c00,#c46a00);border-radius:12px;padding:16px 20px;'
+        // $COOK bar — blue
+        + '<div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:12px;padding:16px 20px;'
         + 'display:flex;align-items:center;gap:16px;color:#fff;margin-bottom:10px;">'
         + '<div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.15);'
         + 'display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">\uD83C\uDF6A</div>'
@@ -49,39 +63,26 @@
         + '<div style="font-size:20px;font-weight:700;line-height:1;">$COOK</div>'
         + '<div style="font-size:12px;opacity:.75;margin-top:2px;">The CookieChain Token</div>'
         + '</div>'
-        + '<div style="background:rgba(255,255,255,.18);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;">Learn more \u2192</div>'
         + '</div>'
 
-        // --- CA bar with copy button ---
-        + '<div style="background:#1a0e00;border-radius:12px;padding:12px 16px;display:flex;align-items:center;'
-        + 'gap:10px;border:1px solid rgba(196,106,0,.35);">'
-        + '<span style="font-size:10px;font-weight:700;color:#c46a00;letter-spacing:.06em;white-space:nowrap;">CA:</span>'
-        + '<span id="ck-ca-value" style="font-size:11px;color:#e8c080;font-family:monospace;flex:1;'
-        + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + ca + '</span>'
-        + '<button id="ck-copy-btn"'
-        + ' style="background:rgba(196,106,0,.25);border:1px solid rgba(196,106,0,.4);border-radius:7px;'
-        + 'padding:5px 10px;font-size:11px;font-weight:600;color:#f0b060;cursor:pointer;white-space:nowrap;">Copy</button>'
+        // CA bar — no copy button
+        + '<div style="background:#0f172a;border-radius:12px;padding:12px 16px;display:flex;align-items:center;'
+        + 'gap:10px;border:1px solid rgba(59,130,246,.35);">'
+        + '<span style="font-size:10px;font-weight:700;color:#60a5fa;letter-spacing:.06em;white-space:nowrap;">CA:</span>'
+        + '<span style="font-size:11px;color:#bfdbfe;font-family:monospace;flex:1;overflow:hidden;'
+        + 'text-overflow:ellipsis;white-space:nowrap;">' + ca + '</span>'
         + '</div>'
+
+        // Dynamic links
+        + linksHTML
 
       + '</div>';
-
-    target.innerHTML = html;
-
-    // Wire up the copy button cleanly after render
-    document.getElementById('ck-copy-btn').addEventListener('click', function () {
-      var btn = this;
-      navigator.clipboard.writeText(ca).then(function () {
-        btn.textContent = 'Copied!';
-        setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
-      });
-    });
   }
 
-  // Fetch JSON from GitHub via jsDelivr and build the widget
-  fetch(JSON_URL)
-    .then(function (response) { return response.json(); })
+  fetch(DATA_URL)
+    .then(function (r) { return r.json(); })
     .then(function (data) { buildWidget(data); })
-    .catch(function (err) { console.warn('CookieChain widget failed to load:', err); });
+    .catch(function (err) { console.warn('CookieChain widget error:', err); });
 
 })();
 </script>
