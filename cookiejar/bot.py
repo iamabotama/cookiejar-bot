@@ -14,6 +14,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 from . import config, github_sync, knowledge_store
 from .handlers import (
+    cmd_admin,
     cmd_announce,
     cmd_ask,
     cmd_ca,
@@ -95,6 +96,7 @@ def build_app() -> Application:
     app.add_handler(CommandHandler("syncnow",     cmd_syncnow))
     app.add_handler(CommandHandler("setmode",     cmd_setmode))
     app.add_handler(CommandHandler("chatid",      cmd_chatid))
+    app.add_handler(CommandHandler("admin",       cmd_admin))
     app.add_handler(CommandHandler("whoami",      cmd_whoami))
 
     # Message handler for @mentions and DMs

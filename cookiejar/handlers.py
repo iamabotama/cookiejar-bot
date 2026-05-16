@@ -22,7 +22,7 @@ from telegram import BotCommand, ChatAction, Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from . import ai_engine, config, github_sync, ingestion, ingestion_crawler, knowledge_store
+from . import admin_store, ai_engine, config, github_sync, ingestion, ingestion_crawler, knowledge_store
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +35,8 @@ CHAIN_JSON = Path(__file__).parent.parent / "cookiechain.json"
 # ---------------------------------------------------------------------------
 
 def _is_admin(user_id: int) -> bool:
-    return user_id in config.ADMIN_USER_IDS
+    """True for both super-admins (env var) and dynamically-added admins."""
+    return admin_store.is_admin(user_id)
 
 
 _chain_cache: dict | None = None
@@ -148,6 +149,9 @@ def _build_help(is_admin: bool) -> str:
         "`/syncnow` — Force GitHub sync\n"
         "`/setmode answer|listen` — Switch mode\n"
         "`/chatid` — Get channel ID\n"
+        "`/admin list` — List all admins\n"
+        "`/admin add @user <id>` — Grant admin (super only)\n"
+        "`/admin remove <id>` — Revoke admin (super only)\n"
     )
     return header + public + (admin if is_admin else "")
 
@@ -514,9 +518,135 @@ async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not config.is_allowed_chat(update.effective_chat.id):
         return
     user = update.effective_user
-    is_admin = _is_admin(user.id) if user else False
+    is_adm = _is_admin(user.id) if user else False
+    is_super = admin_store.is_super_admin(user.id) if user else False
+    tier = "super-admin" if is_super else ("admin" if is_adm else "member")
     await update.message.reply_text(
-        f"🍪 ID: `{user.id}` — Admin: `{is_admin}`", parse_mode=ParseMode.MARKDOWN
+        f"🍪 ID: `{user.id}` — Role: `{tier}`", parse_mode=ParseMode.MARKDOWN
+    )
+
+
+async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    /admin list                  — list all admins (any admin)
+    /admin add @username <id>    — grant admin (super-admin only)
+    /admin remove <id>           — revoke admin (super-admin only)
+
+    The <id> is the Telegram numeric user ID (they can get it with /whoami).
+    @username is optional but recommended as a label.
+    """
+    if not config.is_allowed_chat(update.effective_chat.id):
+        return
+    user = update.effective_user
+    if not user:
+        return
+
+    # Any admin can run /admin list; add/remove require super-admin
+    if not _is_admin(user.id):
+        await update.message.reply_text("🚫 Admin only.")
+        return
+
+    args = context.args or []
+    sub = args[0].lower() if args else ""
+
+    # ── /admin list ──────────────────────────────────────────────────────────
+    if sub == "list" or sub == "":
+        admins = admin_store.list_admins()
+        if not admins:
+            await update.message.reply_text("🍪 No admins configured.")
+            return
+        lines = ["🍪 *Admin List*"]
+        for a in admins:
+            uid = a["user_id"]
+            uname = f"@{a['username']}" if a.get("username") else "(no username)"
+            tier = "👑 super" if a["tier"] == "super" else "🔑 admin"
+            added = f"  added {a['added_at'][:10]}" if a.get("added_at") else ""
+            lines.append(f"{tier} `{uid}` {uname}{added}")
+        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
+        return
+
+    # ── /admin add / remove require super-admin ───────────────────────────────
+    if not admin_store.is_super_admin(user.id):
+        await update.message.reply_text("🚫 Only super-admins can add or remove admins.")
+        return
+
+    # ── /admin add [@username] <user_id> [note...] ───────────────────────────
+    if sub == "add":
+        # Parse: /admin add @alice 123456789 [optional note]
+        # OR:    /admin add 123456789 [optional note]   (no username)
+        remaining = args[1:]  # everything after "add"
+        username = None
+        note = ""
+        target_id = None
+
+        if not remaining:
+            await update.message.reply_text(
+                "Usage: `/admin add @username <user_id>` or `/admin add <user_id>`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+
+        # If first token starts with @, treat as username label
+        if remaining[0].startswith("@"):
+            username = remaining[0].lstrip("@")
+            remaining = remaining[1:]
+
+        if not remaining:
+            await update.message.reply_text(
+                "Please provide the numeric user ID. They can get it with `/whoami`.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+
+        if not remaining[0].isdigit():
+            await update.message.reply_text(
+                "User ID must be a number. Usage: `/admin add @username <user_id>`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+
+        target_id = int(remaining[0])
+        note = " ".join(remaining[1:])  # anything after the ID is a note
+
+        result = admin_store.add_admin(
+            user_id=target_id,
+            added_by=user.id,
+            username=username,
+            note=note,
+        )
+        if result["success"]:
+            label = f"@{username}" if username else str(target_id)
+            await update.message.reply_text(
+                f"✅ {label} (`{target_id}`) added as admin.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        else:
+            await update.message.reply_text(f"❌ {result['reason']}")
+        return
+
+    # ── /admin remove <user_id> ───────────────────────────────────────────────
+    if sub == "remove":
+        if len(args) < 2 or not args[1].isdigit():
+            await update.message.reply_text(
+                "Usage: `/admin remove <user_id>`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
+        target_id = int(args[1])
+        result = admin_store.remove_admin(user_id=target_id, removed_by=user.id)
+        if result["success"]:
+            await update.message.reply_text(
+                f"✅ Admin `{target_id}` removed.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        else:
+            await update.message.reply_text(f"❌ {result['reason']}")
+        return
+
+    # Unknown subcommand
+    await update.message.reply_text(
+        "Usage:\n`/admin list`\n`/admin add @username <id>`\n`/admin remove <id>`",
+        parse_mode=ParseMode.MARKDOWN,
     )
 
 
@@ -596,6 +726,7 @@ def get_bot_commands(is_admin_context: bool = False) -> list:
         BotCommand("syncnow",     "[Admin] Force GitHub sync"),
         BotCommand("setmode",     "[Admin] Switch answer/listen mode"),
         BotCommand("chatid",      "[Admin] Get channel ID"),
-        BotCommand("whoami",      "Show your user ID and admin status"),
+        BotCommand("admin",       "[Admin] Manage bot admins"),
+        BotCommand("whoami",      "Show your user ID and role"),
     ]
     return public + admin_extra
