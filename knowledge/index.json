@@ -1,59 +1,51 @@
 {
-  "version": 2,
   "topics": {
-    "lore": {
-      "name": "lore",
-      "description": "Cookie Chain origin story, history, culture, lore",
-      "file": "topics/lore.jsonl",
-      "entry_count": 2
-    },
     "chain": {
-      "name": "chain",
-      "description": "Cookie Chain blockchain architecture, consensus, validators, bridge",
       "file": "topics/chain.jsonl",
-      "entry_count": 17
+      "count": 8,
+      "description": "Architecture, consensus, validators, bridge, ecosystem dApps"
+    },
+    "lore": {
+      "file": "topics/lore.jsonl",
+      "count": 4,
+      "description": "Origin story, history, culture, Gorbagana"
     },
     "token": {
-      "name": "token",
-      "description": "$COOK token, tokenomics, staking, contract address",
       "file": "topics/token.jsonl",
-      "entry_count": 2
+      "count": 1,
+      "description": "$COOK tokenomics, staking, bridge mechanics"
     },
     "community": {
-      "name": "community",
-      "description": "Telegram groups: whales, memes, devs, general, announcements",
       "file": "topics/community.jsonl",
-      "entry_count": 1
+      "count": 3,
+      "description": "Telegram groups, community vault, governance"
     },
     "dev": {
-      "name": "dev",
-      "description": "Developer guide, SDK, RPC, smart contracts, API",
       "file": "topics/dev.jsonl",
-      "entry_count": 0
+      "count": 5,
+      "description": "Developer guide, SDK, RPC, API, builder docs"
     },
     "faq": {
-      "name": "faq",
-      "description": "FAQ, getting started, wallets, how-to guides",
       "file": "topics/faq.jsonl",
-      "entry_count": 0
+      "count": 6,
+      "description": "Getting started, wallets, how-to guides, degens guide"
     },
     "links": {
-      "name": "links",
-      "description": "Official websites, docs, explorer, bridge, swap URLs",
       "file": "topics/links.jsonl",
-      "entry_count": 4
+      "count": 4,
+      "description": "Official websites, explorer, bridge, swap, dApps"
     },
     "socials": {
-      "name": "socials",
-      "description": "Official X/Twitter accounts, community Twitter handles",
       "file": "topics/socials.jsonl",
-      "entry_count": 1
+      "count": 1,
+      "description": "Official X/Twitter, community Twitter handles"
     },
     "general": {
-      "name": "general",
-      "description": "General Cookie Chain information and catch-all",
       "file": "topics/general.jsonl",
-      "entry_count": 0
+      "count": 1,
+      "description": "General knowledge, miscellaneous"
     }
-  }
+  },
+  "total_active": 33,
+  "last_rebuilt": "2026-05-16T20:54:59.051973+00:00"
 }
