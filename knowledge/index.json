@@ -4,7 +4,7 @@
       "file": "topics/chain.jsonl",
       "count": 22,
       "description": "Architecture, consensus, validators, bridge, ecosystem dApps",
-      "entry_count": 22
+      "entry_count": 23
     },
     "lore": {
       "file": "topics/lore.jsonl",
@@ -38,7 +38,7 @@
     },
     "links": {
       "file": "topics/links.jsonl",
-      "count": 0,
+      "count": 1,
       "description": "Official websites, explorer, bridge, swap, dApps",
       "entry_count": 1
     },
