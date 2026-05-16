@@ -2,7 +2,7 @@
   "topics": {
     "chain": {
       "file": "topics/chain.jsonl",
-      "count": 22,
+      "count": 23,
       "description": "Architecture, consensus, validators, bridge, ecosystem dApps",
       "entry_count": 23
     },
