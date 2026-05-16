@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import config
+from .utils import now_iso as _now_iso
 
 log = logging.getLogger(__name__)
 
@@ -265,9 +266,6 @@ def classify_question_to_topics(question: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Low-level I/O
 # ---------------------------------------------------------------------------
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 def _make_id(source: str, content: str) -> str:
     raw = f"{source}::{content[:512]}"
@@ -534,7 +532,11 @@ def auto_stale_check() -> int:
     count = 0
     for e in entries:
         if e.get("status") == "active":
-            ingested = datetime.fromisoformat(e["ingested_at"])
+            raw_ts = e.get("ingested_at")
+            if not raw_ts:
+                log.warning("auto_stale_check: entry %s missing ingested_at — skipping", e.get("id", "?"))
+                continue
+            ingested = datetime.fromisoformat(raw_ts)
             if ingested < cutoff:
                 e["status"] = "stale"
                 e["updated_at"] = _now_iso()

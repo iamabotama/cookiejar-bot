@@ -78,7 +78,7 @@ def push_file(local_path: Path, repo_path: str, commit_message: str) -> bool:
     r = requests.put(url, headers=_headers(), json=payload, timeout=30)
 
     if r.status_code in (200, 201):
-        log.info("Pushed %s → %s", local_path.name, repo_path)
+        log.info("Pushed %s -> %s", local_path.name, repo_path)
         return True
     else:
         log.error("Failed to push %s: %s %s", repo_path, r.status_code, r.text[:200])
@@ -102,7 +102,7 @@ def pull_file(repo_path: str, local_path: Path) -> bool:
         content = base64.b64decode(data["content"])
         local_path.parent.mkdir(parents=True, exist_ok=True)
         local_path.write_bytes(content)
-        log.info("Pulled %s → %s", repo_path, local_path.name)
+        log.info("Pulled %s -> %s", repo_path, local_path.name)
         return True
     elif r.status_code == 404:
         log.info("Remote file %s not found — nothing to pull", repo_path)

@@ -36,11 +36,11 @@ changes are persisted and visible to other bot instances.
 import json
 import logging
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 from . import config
+from .utils import now_iso as _now_iso
 
 log = logging.getLogger(__name__)
 
@@ -71,10 +71,6 @@ def _store_path() -> Path:
 # ---------------------------------------------------------------------------
 # Low-level I/O
 # ---------------------------------------------------------------------------
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
 
 def _load() -> dict:
     """
