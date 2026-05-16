@@ -22,7 +22,7 @@ from telegram import BotCommand, ChatAction, Message, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from . import admin_store, ai_engine, config, github_sync, ingestion, ingestion_crawler, knowledge_store
+from . import admin_store, ai_engine, config, github_sync, ingestion_crawler, knowledge_store
 
 log = logging.getLogger(__name__)
 

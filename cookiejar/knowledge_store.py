@@ -678,6 +678,43 @@ def _upsert_topic_entry(
     _append_entry_to_file(path, entry)
 
 # ---------------------------------------------------------------------------
+# Topic file rebuild  (called after a GitHub pull)
+# ---------------------------------------------------------------------------
+
+def rebuild_topic_files() -> dict:
+    """
+    Rebuild all topic files from scratch using active.jsonl as the source
+    of truth.  Called after every GitHub pull so local topic files always
+    reflect the canonical active.jsonl.
+
+    Returns a dict mapping topic_name -> entry_count.
+    """
+    _ensure_dirs()
+
+    # Wipe existing topic files
+    for f in _topics_dir().glob("*.jsonl"):
+        f.unlink()
+
+    # Reclassify every active entry into the matching topic file
+    counts: dict[str, int] = {}
+    for entry in _read_entries(config.ACTIVE_CACHE):
+        if entry.get("status") != "active":
+            continue
+        topic = classify_to_topic(entry)
+        _append_entry_to_file(_topic_path(topic), entry)
+        counts[topic] = counts.get(topic, 0) + 1
+
+    # Rebuild index.json from fresh counts
+    index = _load_index()
+    for t in index["topics"].values():
+        t["entry_count"] = counts.get(t["name"], 0)
+    _save_index(index)
+
+    log.info("Topic files rebuilt from active.jsonl: %s", counts)
+    return counts
+
+
+# ---------------------------------------------------------------------------
 # Ensure knowledge directory structure exists on import
 # ---------------------------------------------------------------------------
 

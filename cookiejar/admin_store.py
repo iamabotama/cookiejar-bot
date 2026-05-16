@@ -25,6 +25,9 @@ The env-var ADMIN_USER_IDS list is the immutable super-admin seed.
 admins.json holds only the dynamically-added admins.
 is_admin() returns True for BOTH tiers.
 is_super_admin() returns True only for the env-var tier.
+
+After every add/remove, admins.json is immediately pushed to GitHub so
+changes are persisted and visible to other bot instances.
 """
 
 import json
@@ -37,6 +40,7 @@ from . import config
 
 log = logging.getLogger(__name__)
 
+
 # ---------------------------------------------------------------------------
 # Path
 # ---------------------------------------------------------------------------
@@ -44,12 +48,14 @@ log = logging.getLogger(__name__)
 def _store_path() -> Path:
     return config.RUNTIME_DIR / "admins.json"
 
+
 # ---------------------------------------------------------------------------
 # Low-level I/O
 # ---------------------------------------------------------------------------
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
 
 def _load() -> dict:
     p = _store_path()
@@ -60,10 +66,21 @@ def _load() -> dict:
             log.error("Failed to read admins.json: %s", exc)
     return {"admins": []}
 
+
 def _save(data: dict) -> None:
     p = _store_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _push_to_github() -> None:
+    """Best-effort push of admins.json to GitHub. Non-fatal on failure."""
+    try:
+        from . import github_sync
+        github_sync.push_admins_to_github()
+    except Exception as exc:
+        log.warning("Failed to push admins.json to GitHub (non-fatal): %s", exc)
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -73,15 +90,17 @@ def is_super_admin(user_id: int) -> bool:
     """True if the user is in the immutable ADMIN_USER_IDS env-var list."""
     return user_id in config.ADMIN_USER_IDS
 
+
 def is_admin(user_id: int) -> bool:
     """
     True if the user is either a super-admin (env var) or a dynamically-added admin.
-    This replaces the old `user_id in config.ADMIN_USER_IDS` check everywhere.
+    Replaces the old `user_id in config.ADMIN_USER_IDS` check everywhere.
     """
     if is_super_admin(user_id):
         return True
     data = _load()
     return any(entry["user_id"] == user_id for entry in data.get("admins", []))
+
 
 def add_admin(
     user_id: int,
@@ -93,6 +112,7 @@ def add_admin(
     Grant admin privileges to user_id.
     Returns {"success": bool, "reason": str}.
     Only super-admins can call this (enforced in the handler, not here).
+    Immediately pushes admins.json to GitHub on success.
     """
     if is_super_admin(user_id):
         return {"success": False, "reason": "That user is already a super-admin (env var)."}
@@ -114,14 +134,17 @@ def add_admin(
     }
     admins.append(entry)
     _save(data)
+    _push_to_github()
     log.info("Admin added: user_id=%s username=%s by=%s", user_id, username, added_by)
     return {"success": True, "reason": "Admin added."}
+
 
 def remove_admin(user_id: int, removed_by: int) -> dict:
     """
     Revoke admin privileges from user_id.
     Returns {"success": bool, "reason": str}.
     Cannot remove super-admins (env-var tier).
+    Immediately pushes admins.json to GitHub on success.
     """
     if is_super_admin(user_id):
         return {
@@ -138,8 +161,10 @@ def remove_admin(user_id: int, removed_by: int) -> dict:
         return {"success": False, "reason": f"User {user_id} is not a dynamic admin."}
 
     _save(data)
+    _push_to_github()
     log.info("Admin removed: user_id=%s by=%s", user_id, removed_by)
     return {"success": True, "reason": "Admin removed."}
+
 
 def list_admins() -> list[dict]:
     """

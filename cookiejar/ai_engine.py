@@ -385,8 +385,11 @@ def adjust_post(original_post: str, instruction: str, user_name: str = "admin") 
     """
     Adjust or rewrite a post based on an instruction, using the full knowledge
     base to ensure factual accuracy about CookieNet / $COOK.
+    Uses the combined text of the original post + instruction as the question
+    to load only the relevant topic context (not the full KB).
     """
-    knowledge = knowledge_store.get_knowledge_context(max_chars=6000)
+    combined_query = f"{original_post} {instruction}"
+    knowledge = knowledge_store.get_topic_knowledge_context(combined_query, max_chars=6000)
     system_prompt = _build_system_prompt(
         knowledge=knowledge,
         extra_instruction=(
@@ -422,7 +425,7 @@ def generate_updates(days: int = 14) -> str:
     Scan knowledge base entries from the last `days` days, rank by importance,
     and return a formatted top-10 digest suitable for posting in Telegram.
     """
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timezone, timedelta  # noqa: PLC0415 — lazy import OK here
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     all_entries = knowledge_store.list_entries(status="active")
