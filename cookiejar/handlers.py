@@ -291,6 +291,9 @@ async def cmd_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     # Case 2: URL — save as metadata entry, do NOT crawl
+    # Be forgiving: auto-prepend https:// if missing
+    if arg and not arg.startswith("http://") and not arg.startswith("https://") and "." in arg:
+        arg = "https://" + arg
     if arg.startswith("http://") or arg.startswith("https://"):
         await _intake(
             update, content=f"Official link: {arg}",
@@ -331,7 +334,11 @@ async def cmd_crawl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     crawl_url = " ".join(context.args).strip() if context.args else ""
-    if not crawl_url or not (crawl_url.startswith("http://") or crawl_url.startswith("https://")):
+    # Be forgiving: strip whitespace, auto-prepend https:// if missing
+    crawl_url = crawl_url.strip().rstrip("/")
+    if crawl_url and not crawl_url.startswith("http://") and not crawl_url.startswith("https://"):
+        crawl_url = "https://" + crawl_url
+    if not crawl_url or "." not in crawl_url:
         await update.message.reply_text(
             "Usage: `/crawl <url>`\nExample: `/crawl https://cookiescan.io/docs`",
             parse_mode=ParseMode.MARKDOWN,
