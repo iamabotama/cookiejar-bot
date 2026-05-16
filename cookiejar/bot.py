@@ -1,51 +1,41 @@
 """
-CookieJar Bot — Main Entry Point
-Wires together handlers, starts the background sync loop, and launches the bot.
+bot.py — CookieJar bot entry point.
+
+Registers all handlers from the single unified handlers.py module.
+Mode (listener vs answer) is set in config; the same handler set is
+registered regardless of mode — mode only affects what the bot responds to.
 """
 
 import logging
-import threading
 import sys
+import threading
 
-from telegram import BotCommand
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    MessageHandler,
-    filters,
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 from . import config, github_sync, knowledge_store
-from .handlers_primary import (
-    cmd_debug,
-    cmd_whoami,
-    cmd_cookiejar,
-    cmd_chatid,
-    cmd_setmode,
-    cmd_start as primary_start,
-    cmd_help as primary_help,
+from .handlers import (
+    cmd_announce,
     cmd_ask,
-    cmd_stats,
-    cmd_ingest,
-    cmd_addpost,
+    cmd_ca,
+    cmd_chatid,
+    cmd_crawl,
+    cmd_deletelast,
+    cmd_help,
+    cmd_links,
     cmd_listentries,
     cmd_liststale,
-    cmd_stale,
-    cmd_archive,
-    cmd_syncnow,
-    cmd_stalecheck,
-    cmd_updates,
-    handle_message as primary_message,
-)
-from .handlers_listener import (
-    cmd_cookiejar as listener_cookiejar,
-    cmd_setmode as listener_setmode,
-    cmd_start as listener_start,
-    cmd_help as listener_help,
     cmd_save,
-    cmd_saveingest,
-    cmd_updates as listener_updates,
-    handle_message as listener_message,
+    cmd_setmode,
+    cmd_start,
+    cmd_stale,
+    cmd_stats,
+    cmd_syncnow,
+    cmd_tg,
+    cmd_updates,
+    cmd_whoami,
+    cmd_x,
+    get_bot_commands,
+    handle_message,
 )
 
 log = logging.getLogger(__name__)
@@ -57,8 +47,8 @@ def _setup_logging() -> None:
         level=logging.INFO,
         stream=sys.stdout,
     )
-    # Reduce noise from httpx
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("telegram").setLevel(logging.WARNING)
 
 
 def _validate_config() -> None:
@@ -68,107 +58,47 @@ def _validate_config() -> None:
         sys.exit(1)
 
 
-def _set_bot_commands_primary(app: Application) -> None:
-    """Register slash command descriptions shown in Telegram's command menu."""
-    commands = [
-        BotCommand("start", "Welcome message"),
-        BotCommand("help", "Show all commands"),
-        BotCommand("ask", "Ask CookieJar a question"),
-        BotCommand("stats", "Knowledge base statistics"),
-        BotCommand("updates", "Latest updates from the last 2 weeks"),
-        BotCommand("ingest", "[Admin] Ingest a website URL"),
-        BotCommand("addpost", "[Admin] Add a manual post"),
-        BotCommand("listentries", "[Admin] List active entries"),
-        BotCommand("liststale", "[Admin] List stale entries"),
-        BotCommand("stale", "[Admin] Mark entry as stale"),
-        BotCommand("archive", "[Admin] Archive an entry"),
-        BotCommand("syncnow", "[Admin] Force GitHub sync"),
-        BotCommand("stalecheck", "[Admin] Run auto stale check"),
-        BotCommand("cj", "[Admin] Universal intake: ingest/note/pin/stale/deletelast/status/help"),
-        BotCommand("cookiejar", "[Admin] Alias for /cj — drop content into the knowledge jar"),
-        BotCommand("whoami", "Show your Telegram user ID and admin status"),
-        BotCommand("chatid", "[Admin] Get this channel's Telegram ID"),
-        BotCommand("setmode", "[Admin] Switch between answer and listen modes"),
-    ]
-    # Commands are set at startup via post_init
-    return commands
-
-
-def _set_bot_commands_listener(app: Application) -> None:
-    return [
-        BotCommand("start", "Welcome message"),
-        BotCommand("help", "Show commands"),
-        BotCommand("save", "[Admin] Save replied message to knowledge base"),
-        BotCommand("saveingest", "[Admin] Ingest a URL into knowledge base"),
-        BotCommand("cj", "[Admin] Universal intake: ingest/note/pin/stale/deletelast/status/help"),
-        BotCommand("cookiejar", "[Admin] Alias for /cj — drop content into the knowledge jar"),
-        BotCommand("setmode", "[Admin] Switch between listen and answer modes"),
-    ]
-
-
-async def _post_init_primary(app: Application) -> None:
-    cmds = _set_bot_commands_primary(app)
+async def _post_init(app: Application) -> None:
+    cmds = get_bot_commands()
     await app.bot.set_my_commands(cmds)
-    log.info("CookieJar PRIMARY mode started. Bot: @%s", config.BOT_USERNAME)
+    log.info("CookieJar started in %s mode. Bot: @%s", config.BOT_MODE.upper(), config.BOT_USERNAME)
 
 
-async def _post_init_listener(app: Application) -> None:
-    cmds = _set_bot_commands_listener(app)
-    await app.bot.set_my_commands(cmds)
-    log.info("CookieJar LISTENER mode started. Bot: @%s", config.BOT_USERNAME)
-
-
-def build_primary_app() -> Application:
+def build_app() -> Application:
     app = (
         Application.builder()
         .token(config.BOT_TOKEN)
-        .post_init(_post_init_primary)
+        .post_init(_post_init)
         .build()
     )
 
-    app.add_handler(CommandHandler("start", primary_start))
-    app.add_handler(CommandHandler("help", primary_help))
-    app.add_handler(CommandHandler("ask", cmd_ask))
-    app.add_handler(CommandHandler("stats", cmd_stats))
-    app.add_handler(CommandHandler("updates", cmd_updates))
-    app.add_handler(CommandHandler("ingest", cmd_ingest))
-    app.add_handler(CommandHandler("addpost", cmd_addpost))
+    # Public commands
+    app.add_handler(CommandHandler("start",    cmd_start))
+    app.add_handler(CommandHandler("help",     cmd_help))
+    app.add_handler(CommandHandler("ask",      cmd_ask))
+    app.add_handler(CommandHandler("updates",  cmd_updates))
+    app.add_handler(CommandHandler("stats",    cmd_stats))
+    app.add_handler(CommandHandler("tg",       cmd_tg))
+    app.add_handler(CommandHandler("x",        cmd_x))
+    app.add_handler(CommandHandler("ca",       cmd_ca))
+    app.add_handler(CommandHandler("token",    cmd_ca))   # alias for /ca
+    app.add_handler(CommandHandler("links",    cmd_links))
+
+    # Admin commands
+    app.add_handler(CommandHandler("save",        cmd_save))
+    app.add_handler(CommandHandler("crawl",       cmd_crawl))
+    app.add_handler(CommandHandler("stale",       cmd_stale))
+    app.add_handler(CommandHandler("deletelast",  cmd_deletelast))
+    app.add_handler(CommandHandler("announce",    cmd_announce))
     app.add_handler(CommandHandler("listentries", cmd_listentries))
-    app.add_handler(CommandHandler("liststale", cmd_liststale))
-    app.add_handler(CommandHandler("stale", cmd_stale))
-    app.add_handler(CommandHandler("archive", cmd_archive))
-    app.add_handler(CommandHandler("syncnow", cmd_syncnow))
-    app.add_handler(CommandHandler("stalecheck", cmd_stalecheck))
-    app.add_handler(CommandHandler("cookiejar", cmd_cookiejar))
-    app.add_handler(CommandHandler("cj", cmd_cookiejar))
-    app.add_handler(CommandHandler("debug", cmd_debug))
-    app.add_handler(CommandHandler("whoami", cmd_whoami))
-    app.add_handler(CommandHandler("chatid", cmd_chatid))
-    app.add_handler(CommandHandler("setmode", cmd_setmode))
+    app.add_handler(CommandHandler("liststale",   cmd_liststale))
+    app.add_handler(CommandHandler("syncnow",     cmd_syncnow))
+    app.add_handler(CommandHandler("setmode",     cmd_setmode))
+    app.add_handler(CommandHandler("chatid",      cmd_chatid))
+    app.add_handler(CommandHandler("whoami",      cmd_whoami))
 
-    # Handle all text messages (for @mention and DM questions)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, primary_message))
-
-    return app
-
-
-def build_listener_app() -> Application:
-    app = (
-        Application.builder()
-        .token(config.BOT_TOKEN)
-        .post_init(_post_init_listener)
-        .build()
-    )
-
-    app.add_handler(CommandHandler("start", listener_start))
-    app.add_handler(CommandHandler("help", listener_help))
-    app.add_handler(CommandHandler("save", cmd_save))
-    app.add_handler(CommandHandler("saveingest", cmd_saveingest))
-    app.add_handler(CommandHandler("cookiejar", listener_cookiejar))
-    app.add_handler(CommandHandler("cj", listener_cookiejar))
-    app.add_handler(CommandHandler("setmode", listener_setmode))
-    app.add_handler(CommandHandler("updates", listener_updates))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, listener_message))
+    # Message handler for @mentions and DMs
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     return app
 
@@ -176,33 +106,23 @@ def build_listener_app() -> Application:
 def main() -> None:
     _setup_logging()
     _validate_config()
-
     log.info("CookieJar starting in %s mode", config.BOT_MODE.upper())
 
-    # Ensure local directories exist
     config.CACHE_DIR.mkdir(parents=True, exist_ok=True)
     config.ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     config.SOURCES_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Initial pull from GitHub
     log.info("Pulling knowledge cache from GitHub...")
     github_sync.sync_knowledge_from_github()
 
-    # Run auto stale check on startup
     staled = knowledge_store.auto_stale_check()
     if staled:
         log.info("Startup stale check: %d entries marked stale", staled)
 
-    # Start background GitHub sync thread
     sync_thread = threading.Thread(target=github_sync.start_sync_loop, daemon=True)
     sync_thread.start()
 
-    # Build and run the appropriate bot
-    if config.BOT_MODE == "listener":
-        app = build_listener_app()
-    else:
-        app = build_primary_app()
-
+    app = build_app()
     log.info("Bot is running. Press Ctrl+C to stop.")
     app.run_polling(drop_pending_updates=True)
 
