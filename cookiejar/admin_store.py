@@ -26,12 +26,16 @@ admins.json holds only the dynamically-added admins.
 is_admin() returns True for BOTH tiers.
 is_super_admin() returns True only for the env-var tier.
 
+is_admin() uses a 60-second in-memory cache to avoid a disk read on every
+permission check. The cache is invalidated immediately on add/remove.
+
 After every add/remove, admins.json is immediately pushed to GitHub so
 changes are persisted and visible to other bot instances.
 """
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -39,6 +43,21 @@ from typing import Optional
 from . import config
 
 log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# In-memory cache for the dynamic admin list
+# ---------------------------------------------------------------------------
+
+_CACHE_TTL = 60  # seconds
+
+_cache_data: Optional[dict] = None
+_cache_ts: float = 0.0
+
+
+def _invalidate_cache() -> None:
+    global _cache_data, _cache_ts
+    _cache_data = None
+    _cache_ts = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -58,19 +77,34 @@ def _now_iso() -> str:
 
 
 def _load() -> dict:
+    """
+    Load admins.json from disk, with a 60-second in-memory cache.
+    Cache is invalidated immediately on add/remove.
+    """
+    global _cache_data, _cache_ts
+    now = time.monotonic()
+    if _cache_data is not None and (now - _cache_ts) < _CACHE_TTL:
+        return _cache_data
+
     p = _store_path()
     if p.exists():
         try:
-            return json.loads(p.read_text(encoding="utf-8"))
+            _cache_data = json.loads(p.read_text(encoding="utf-8"))
+            _cache_ts = now
+            return _cache_data
         except Exception as exc:
             log.error("Failed to read admins.json: %s", exc)
-    return {"admins": []}
+
+    _cache_data = {"admins": []}
+    _cache_ts = now
+    return _cache_data
 
 
 def _save(data: dict) -> None:
     p = _store_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    _invalidate_cache()
 
 
 def _push_to_github() -> None:
@@ -94,7 +128,7 @@ def is_super_admin(user_id: int) -> bool:
 def is_admin(user_id: int) -> bool:
     """
     True if the user is either a super-admin (env var) or a dynamically-added admin.
-    Replaces the old `user_id in config.ADMIN_USER_IDS` check everywhere.
+    Uses a 60-second in-memory cache — no disk read on every permission check.
     """
     if is_super_admin(user_id):
         return True
@@ -112,7 +146,7 @@ def add_admin(
     Grant admin privileges to user_id.
     Returns {"success": bool, "reason": str}.
     Only super-admins can call this (enforced in the handler, not here).
-    Immediately pushes admins.json to GitHub on success.
+    Invalidates the cache and immediately pushes admins.json to GitHub on success.
     """
     if is_super_admin(user_id):
         return {"success": False, "reason": "That user is already a super-admin (env var)."}
@@ -133,7 +167,7 @@ def add_admin(
         "note": note,
     }
     admins.append(entry)
-    _save(data)
+    _save(data)       # also invalidates cache
     _push_to_github()
     log.info("Admin added: user_id=%s username=%s by=%s", user_id, username, added_by)
     return {"success": True, "reason": "Admin added."}
@@ -144,7 +178,7 @@ def remove_admin(user_id: int, removed_by: int) -> dict:
     Revoke admin privileges from user_id.
     Returns {"success": bool, "reason": str}.
     Cannot remove super-admins (env-var tier).
-    Immediately pushes admins.json to GitHub on success.
+    Invalidates the cache and immediately pushes admins.json to GitHub on success.
     """
     if is_super_admin(user_id):
         return {
@@ -160,7 +194,7 @@ def remove_admin(user_id: int, removed_by: int) -> dict:
     if len(data["admins"]) == original_count:
         return {"success": False, "reason": f"User {user_id} is not a dynamic admin."}
 
-    _save(data)
+    _save(data)       # also invalidates cache
     _push_to_github()
     log.info("Admin removed: user_id=%s by=%s", user_id, removed_by)
     return {"success": True, "reason": "Admin removed."}
