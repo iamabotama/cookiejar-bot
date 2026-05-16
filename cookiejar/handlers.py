@@ -22,7 +22,7 @@ from telegram import BotCommand, Message, Update
 from telegram.constants import ChatAction, ParseMode
 from telegram.ext import ContextTypes
 
-from . import admin_store, ai_engine, config, github_sync, ingestion_crawler, knowledge_store
+from . import ai_engine, config, github_sync, ingestion_crawler, knowledge_store
 
 log = logging.getLogger(__name__)
 
@@ -34,9 +34,26 @@ CHAIN_JSON = Path(__file__).parent.parent / "cookiechain.json"
 # Shared utilities
 # ---------------------------------------------------------------------------
 
-def _is_admin(user_id: int) -> bool:
-    """True for both super-admins (env var) and dynamically-added admins."""
-    return admin_store.is_admin(user_id)
+async def _is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    """
+    True if the user is a Telegram group admin/owner in the current chat,
+    OR is listed in the ADMIN_USER_IDS env var (for DM / private-chat use).
+    """
+    user = update.effective_user
+    if not user:
+        return False
+    # Always allow env-var owners (works in DMs and groups)
+    if user.id in config.ADMIN_USER_IDS:
+        return True
+    # In a group/supergroup, check Telegram's own admin list
+    chat = update.effective_chat
+    if chat and chat.type in ("group", "supergroup"):
+        try:
+            member = await context.bot.get_chat_member(chat.id, user.id)
+            return member.status in ("administrator", "creator")
+        except Exception:
+            return False
+    return False
 
 
 _chain_cache: dict | None = None
@@ -149,9 +166,7 @@ def _build_help(is_admin: bool) -> str:
         "`/syncnow` — Force GitHub sync\n"
         "`/setmode answer|listen` — Switch mode\n"
         "`/chatid` — Get channel ID\n"
-        "`/admin list` — List all admins\n"
-        "`/admin add @user <id>` — Grant admin (super only)\n"
-        "`/admin remove <id>` — Revoke admin (super only)\n"
+        "`/admin list` — List group admins\n"
     )
     return header + public + (admin if is_admin else "")
 
@@ -172,7 +187,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    is_admin = _is_admin(update.effective_user.id) if update.effective_user else False
+    is_admin = await _is_admin(update, context)
     await update.message.reply_text(_build_help(is_admin), parse_mode=ParseMode.MARKDOWN)
 
 
@@ -274,10 +289,9 @@ async def cmd_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
-
     arg = " ".join(context.args).strip() if context.args else ""
 
     # Case 1: reply to a message
@@ -333,10 +347,9 @@ async def cmd_crawl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
-
     crawl_url = " ".join(context.args).strip() if context.args else ""
     # Be forgiving: strip whitespace, auto-prepend https:// if missing
     crawl_url = crawl_url.strip().rstrip("/")
@@ -383,7 +396,7 @@ async def cmd_crawl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_stale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     entry_id = context.args[0] if context.args else ""
@@ -401,7 +414,7 @@ async def cmd_stale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_deletelast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     user_id = update.effective_user.id
@@ -421,7 +434,7 @@ async def cmd_deletelast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 async def cmd_announce(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     data = _load_chain_data()
@@ -441,7 +454,7 @@ async def cmd_announce(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def cmd_listentries(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     entries = knowledge_store.list_entries(status="active")
@@ -459,7 +472,7 @@ async def cmd_listentries(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def cmd_liststale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     entries = knowledge_store.list_entries(status="stale")
@@ -475,7 +488,7 @@ async def cmd_liststale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def cmd_syncnow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     github_sync.sync_knowledge_to_github()
@@ -486,7 +499,7 @@ async def cmd_syncnow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def cmd_setmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     arg = (context.args[0].lower() if context.args else "status")
@@ -506,7 +519,7 @@ async def cmd_setmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    if not _is_admin(update.effective_user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
     await update.message.reply_text(
@@ -518,136 +531,44 @@ async def cmd_whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if not config.is_allowed_chat(update.effective_chat.id):
         return
     user = update.effective_user
-    is_adm = _is_admin(user.id) if user else False
-    is_super = admin_store.is_super_admin(user.id) if user else False
-    tier = "super-admin" if is_super else ("admin" if is_adm else "member")
+    if not user:
+        return
+    is_adm = await _is_admin(update, context)
+    tier = "admin" if is_adm else "member"
+    uname_line = f"@{user.username} · " if user.username else ""
     await update.message.reply_text(
-        f"🍪 ID: `{user.id}` — Role: `{tier}`", parse_mode=ParseMode.MARKDOWN
+        f"🍪 *Your info*\n"
+        f"ID: `{uname_line}{user.id}`\n"
+        f"Role: `{tier}`",
+        parse_mode=ParseMode.MARKDOWN,
     )
 
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    /admin list                  — list all admins (any admin)
-    /admin add @username <id>    — grant admin (super-admin only)
-    /admin remove <id>           — revoke admin (super-admin only)
-
-    The <id> is the Telegram numeric user ID (they can get it with /whoami).
-    @username is optional but recommended as a label.
+    /admin list  - list all Telegram group admins (any admin)
+    Admins are managed directly in Telegram group settings.
+    Promote/demote in the group - the bot picks it up automatically.
     """
     if not config.is_allowed_chat(update.effective_chat.id):
         return
-    user = update.effective_user
-    if not user:
-        return
-
-    # Any admin can run /admin list; add/remove require super-admin
-    if not _is_admin(user.id):
+    if not await _is_admin(update, context):
         await update.message.reply_text("🚫 Admin only.")
         return
-
-    args = context.args or []
-    sub = args[0].lower() if args else ""
-
-    # ── /admin list ──────────────────────────────────────────────────────────
-    if sub == "list" or sub == "":
-        admins = admin_store.list_admins()
-        if not admins:
-            await update.message.reply_text("🍪 No admins configured.")
-            return
-        lines = ["🍪 *Admin List*"]
-        for a in admins:
-            uid = a["user_id"]
-            uname = f"@{a['username']}" if a.get("username") else "(no username)"
-            tier = "👑 super" if a["tier"] == "super" else "🔑 admin"
-            added = f"  added {a['added_at'][:10]}" if a.get("added_at") else ""
-            lines.append(f"{tier} `{uid}` {uname}{added}")
-        await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
+    chat = update.effective_chat
+    try:
+        admins = await context.bot.get_chat_administrators(chat.id)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Could not fetch admin list: {e}")
         return
-
-    # ── /admin add / remove require super-admin ───────────────────────────────
-    if not admin_store.is_super_admin(user.id):
-        await update.message.reply_text("🚫 Only super-admins can add or remove admins.")
-        return
-
-    # ── /admin add [@username] <user_id> [note...] ───────────────────────────
-    if sub == "add":
-        # Parse: /admin add @alice 123456789 [optional note]
-        # OR:    /admin add 123456789 [optional note]   (no username)
-        remaining = args[1:]  # everything after "add"
-        username = None
-        note = ""
-        target_id = None
-
-        if not remaining:
-            await update.message.reply_text(
-                "Usage: `/admin add @username <user_id>` or `/admin add <user_id>`",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-            return
-
-        # If first token starts with @, treat as username label
-        if remaining[0].startswith("@"):
-            username = remaining[0].lstrip("@")
-            remaining = remaining[1:]
-
-        if not remaining:
-            await update.message.reply_text(
-                "Please provide the numeric user ID. They can get it with `/whoami`.",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-            return
-
-        if not remaining[0].isdigit():
-            await update.message.reply_text(
-                "User ID must be a number. Usage: `/admin add @username <user_id>`",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-            return
-
-        target_id = int(remaining[0])
-        note = " ".join(remaining[1:])  # anything after the ID is a note
-
-        result = admin_store.add_admin(
-            user_id=target_id,
-            added_by=user.id,
-            username=username,
-            note=note,
-        )
-        if result["success"]:
-            label = f"@{username}" if username else str(target_id)
-            await update.message.reply_text(
-                f"✅ {label} (`{target_id}`) added as admin.",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-        else:
-            await update.message.reply_text(f"❌ {result['reason']}")
-        return
-
-    # ── /admin remove <user_id> ───────────────────────────────────────────────
-    if sub == "remove":
-        if len(args) < 2 or not args[1].isdigit():
-            await update.message.reply_text(
-                "Usage: `/admin remove <user_id>`",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-            return
-        target_id = int(args[1])
-        result = admin_store.remove_admin(user_id=target_id, removed_by=user.id)
-        if result["success"]:
-            await update.message.reply_text(
-                f"✅ Admin `{target_id}` removed.",
-                parse_mode=ParseMode.MARKDOWN,
-            )
-        else:
-            await update.message.reply_text(f"❌ {result['reason']}")
-        return
-
-    # Unknown subcommand
-    await update.message.reply_text(
-        "Usage:\n`/admin list`\n`/admin add @username <id>`\n`/admin remove <id>`",
-        parse_mode=ParseMode.MARKDOWN,
-    )
+    lines = ["🍪 *Group Admins*"]
+    for member in admins:
+        u = member.user
+        uname = f"@{u.username}" if u.username else u.full_name or str(u.id)
+        tier = "👑" if member.status == "creator" else "🔑"
+        lines.append(f"{tier} {uname} (`{u.id}`)") 
+    lines.append("\n_To grant bot admin rights, promote the user in Telegram group settings._")
+    await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
 
 
 # ---------------------------------------------------------------------------
@@ -660,6 +581,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     message: Message = update.message
     if not message or not message.text:
         return
+
     text = message.text.strip()
     bot_username = f"@{config.BOT_USERNAME}"
 
@@ -726,7 +648,7 @@ def get_bot_commands(is_admin_context: bool = False) -> list:
         BotCommand("syncnow",     "[Admin] Force GitHub sync"),
         BotCommand("setmode",     "[Admin] Switch answer/listen mode"),
         BotCommand("chatid",      "[Admin] Get channel ID"),
-        BotCommand("admin",       "[Admin] Manage bot admins"),
-        BotCommand("whoami",      "Show your user ID and role"),
+        BotCommand("admin",  "[Admin] List group admins"),
+        BotCommand("whoami", "Show your user ID and role"),
     ]
     return public + admin_extra

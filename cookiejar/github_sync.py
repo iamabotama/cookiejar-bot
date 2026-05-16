@@ -5,13 +5,12 @@ Pushes the local knowledge cache to GitHub and pulls updates from it.
 
 Sync scope:
   PUSH: active.jsonl, archive/*.jsonl, knowledge/topics/*.jsonl,
-        knowledge/index.json, admins.json
-  PULL: active.jsonl, cookiechain.json, admins.json
-        → after pull, topic files are rebuilt from active.jsonl
+        knowledge/index.json
+  PULL: active.jsonl, cookiechain.json
+        -> after pull, topic files are rebuilt from active.jsonl
 
 cookiechain.json is pull-only (managed in the repo, not by the bot).
-admins.json is both pushed (when admins are added/removed) and pulled
-(so a multi-instance deployment stays in sync).
+Admin rights are managed via Telegram group settings — no file needed.
 """
 
 import base64
@@ -123,7 +122,6 @@ def sync_knowledge_to_github() -> bool:
       - knowledge/archive/*.jsonl
       - knowledge/topics/*.jsonl
       - knowledge/index.json
-      - admins.json
     """
     success = True
 
@@ -151,20 +149,14 @@ def sync_knowledge_to_github() -> bool:
     if index_file.exists():
         success &= push_file(index_file, "knowledge/index.json", "chore: sync knowledge index")
 
-    # admins.json (runtime admin list)
-    admins_file = config.RUNTIME_DIR / "admins.json"
-    if admins_file.exists():
-        success &= push_file(admins_file, "admins.json", "chore: sync admin list")
-
     return success
 
 
 def sync_knowledge_from_github() -> bool:
     """
     Pull the latest knowledge state from GitHub:
-      - knowledge/active.jsonl  → rebuild topic files locally after pull
-      - cookiechain.json        → read-only config managed in the repo
-      - admins.json             → keep admin list in sync across instances
+      - knowledge/active.jsonl  -> rebuild topic files locally after pull
+      - cookiechain.json        -> read-only config managed in the repo
 
     Topic files are rebuilt from active.jsonl after each pull so the
     local topic cache always reflects the canonical active.jsonl.
@@ -188,21 +180,7 @@ def sync_knowledge_from_github() -> bool:
     chain_json = config.RUNTIME_DIR / "cookiechain.json"
     success &= pull_file("cookiechain.json", chain_json)
 
-    # Pull admins.json (bi-directional — keeps multi-instance in sync)
-    admins_json = config.RUNTIME_DIR / "admins.json"
-    pull_file("admins.json", admins_json)   # 404 on first run is fine — not fatal
-
     return success
-
-
-def push_admins_to_github() -> bool:
-    """
-    Push only admins.json to GitHub.
-    Called immediately after add_admin / remove_admin so the change
-    is persisted to the repo without waiting for the next full sync.
-    """
-    admins_file = config.RUNTIME_DIR / "admins.json"
-    return push_file(admins_file, "admins.json", "chore: update admin list")
 
 
 def push_source_file(source_id: str, content: str) -> bool:
