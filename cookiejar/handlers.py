@@ -694,8 +694,7 @@ def get_bot_commands(is_admin_context: bool = False) -> list:
         BotCommand("liststale",   "[Admin] List stale entries"),
         BotCommand("syncnow",     "[Admin] Force GitHub sync"),
         BotCommand("setmode",     "[Admin] Switch answer/listen mode"),
-        BotCommand("chatid",      "[Admin] Get channel ID"),
         BotCommand("admin",  "[Admin] List group admins"),
-        BotCommand("whoami", "Show your user ID and role"),
+        # /chatid and /whoami intentionally excluded from menu — still work when typed manually
     ]
     return public + admin_extra
