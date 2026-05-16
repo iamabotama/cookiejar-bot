@@ -56,6 +56,24 @@ async def _is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
     return False
 
 
+async def _animate_thinking(message, stop_event: asyncio.Event) -> None:
+    """Animate the thinking indicator by cycling dots.
+    Uses fixed-width frames so the message bubble never resizes.
+    """
+    frames = ["\U0001f36a \u25cf\u25cb\u25cb", "\U0001f36a \u25cf\u25cf\u25cb", "\U0001f36a \u25cf\u25cf\u25cf"]
+    i = 0
+    while not stop_event.is_set():
+        try:
+            await message.edit_text(frames[i % len(frames)])
+        except Exception:
+            pass  # Ignore rate limits, message deleted, etc.
+        i += 1
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=0.5)
+        except asyncio.TimeoutError:
+            pass
+
+
 _chain_cache: dict | None = None
 
 
@@ -120,11 +138,17 @@ async def _answer(update: Update, context: ContextTypes.DEFAULT_TYPE, question: 
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action=ChatAction.TYPING
     )
-    placeholder = await update.message.reply_text("🍪 ...")
-    if any(t in q_lower for t in UPDATE_TRIGGERS):
-        result = await asyncio.to_thread(ai_engine.generate_updates)
-    else:
-        result = await asyncio.to_thread(ai_engine.answer_question, question, user_name)
+    placeholder = await update.message.reply_text("\U0001f36a \u25cf\u25cb\u25cb")
+    stop_event = asyncio.Event()
+    animation_task = asyncio.create_task(_animate_thinking(placeholder, stop_event))
+    try:
+        if any(t in q_lower for t in UPDATE_TRIGGERS):
+            result = await asyncio.to_thread(ai_engine.generate_updates)
+        else:
+            result = await asyncio.to_thread(ai_engine.answer_question, question, user_name)
+    finally:
+        stop_event.set()
+        await animation_task
     await placeholder.edit_text(result, parse_mode=ParseMode.MARKDOWN)
 
 
@@ -620,9 +644,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if not instruction:
             instruction = "Improve this post for the Cookie Chain community."
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-        placeholder = await message.reply_text("🍪 ...")
+        placeholder = await message.reply_text("\U0001f36a \u25cf\u25cb\u25cb")
         user_name = update.effective_user.first_name or "community member"
-        adjusted = await asyncio.to_thread(ai_engine.adjust_post, original, instruction, user_name)
+        stop_event = asyncio.Event()
+        animation_task = asyncio.create_task(_animate_thinking(placeholder, stop_event))
+        try:
+            adjusted = await asyncio.to_thread(ai_engine.adjust_post, original, instruction, user_name)
+        finally:
+            stop_event.set()
+            await animation_task
         await placeholder.edit_text(f"*Adjusted post:*\n\n{adjusted}", parse_mode=ParseMode.MARKDOWN)
         return
 
