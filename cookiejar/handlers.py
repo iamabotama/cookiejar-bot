@@ -18,8 +18,8 @@ import logging
 import random
 from pathlib import Path
 
-from telegram import BotCommand, ChatAction, Message, Update
-from telegram.constants import ParseMode
+from telegram import BotCommand, Message, Update
+from telegram.constants import ChatAction, ParseMode
 from telegram.ext import ContextTypes
 
 from . import admin_store, ai_engine, config, github_sync, ingestion_crawler, knowledge_store

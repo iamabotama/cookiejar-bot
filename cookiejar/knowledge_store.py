@@ -707,9 +707,15 @@ def rebuild_topic_files() -> dict:
         counts[topic] = counts.get(topic, 0) + 1
 
     # Rebuild index.json from fresh counts
+    # Use .items() to get topic_name directly — avoids KeyError if a topic
+    # object in index.json is missing the 'name' field (e.g. after a manual edit).
+    # Write both 'entry_count' and 'count' for compatibility with any reader
+    # that expects either field name.
     index = _load_index()
-    for t in index["topics"].values():
-        t["entry_count"] = counts.get(t["name"], 0)
+    for topic_name, t in index["topics"].items():
+        n = counts.get(topic_name, 0)
+        t["entry_count"] = n
+        t["count"] = n
     _save_index(index)
 
     log.info("Topic files rebuilt from active.jsonl: %s", counts)
