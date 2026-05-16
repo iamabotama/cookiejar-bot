@@ -38,22 +38,20 @@ def _is_admin(user_id: int) -> bool:
     return user_id in config.ADMIN_USER_IDS
 
 
-def _load_chain_data() -> dict:
-    """Load cookiechain.json; return empty dict on any error."""
-    try:
-        return json.loads(CHAIN_JSON.read_text())
-    except Exception:
-        return {}
+_chain_cache: dict | None = None
 
 
-async def _nom_nom(update: Update) -> None:
-    """1-in-10 chance: send the Cookie Monster GIF. Otherwise do nothing."""
-    if random.randint(1, 10) == 1 and GIF_PATH.exists():
-        captions = ["Nom nom. 🍪", "In the jar. 🍪", "Saved. 🍪", "Got it. 🍪", "Stored. 🍪"]
-        await update.message.reply_animation(
-            animation=open(GIF_PATH, "rb"),
-            caption=random.choice(captions),
-        )
+def _load_chain_data(force_reload: bool = False) -> dict:
+    """Load cookiechain.json once at startup and cache it in memory.
+    Pass force_reload=True (e.g. from /syncnow) to refresh the cache.
+    """
+    global _chain_cache
+    if _chain_cache is None or force_reload:
+        try:
+            _chain_cache = json.loads(CHAIN_JSON.read_text())
+        except Exception:
+            _chain_cache = {}
+    return _chain_cache
 
 
 async def _intake(
@@ -66,7 +64,8 @@ async def _intake(
 ) -> None:
     """
     Shared ingestion path. Saves content to KB, syncs to GitHub,
-    replies with a short confirmation, and maybe sends the GIF.
+    then either sends the Cookie Monster GIF (1-in-10) or a plain
+    text confirmation — never both.
     """
     user_id = update.effective_user.id if update.effective_user else 0
     entry = knowledge_store.add_entry(
@@ -79,12 +78,13 @@ async def _intake(
     )
     entry_id = entry.get("id", "?")
     github_sync.sync_knowledge_to_github()
-    confirmations = ["Nom nom. 🍪", "In the jar. 🍪", "Saved. 🍪", "Got it. 🍪", "Stored. 🍪"]
-    await update.message.reply_text(
-        f"{random.choice(confirmations)} `{entry_id}`",
-        parse_mode=ParseMode.MARKDOWN,
-    )
-    await _nom_nom(update)
+    captions = ["Nom nom. 🍪", "In the jar. 🍪", "Saved. 🍪", "Got it. 🍪", "Stored. 🍪"]
+    caption = f"{random.choice(captions)} `{entry_id}`"
+    if random.randint(1, 10) == 1 and GIF_PATH.exists():
+        with open(GIF_PATH, "rb") as gif:
+            await update.message.reply_animation(animation=gif, caption=caption, parse_mode=ParseMode.MARKDOWN)
+    else:
+        await update.message.reply_text(caption, parse_mode=ParseMode.MARKDOWN)
 
 
 async def _answer(update: Update, context: ContextTypes.DEFAULT_TYPE, question: str) -> None:
@@ -104,13 +104,9 @@ async def _answer(update: Update, context: ContextTypes.DEFAULT_TYPE, question: 
     )
     placeholder = await update.message.reply_text("🍪 ...")
     if any(t in q_lower for t in UPDATE_TRIGGERS):
-        result = await asyncio.get_event_loop().run_in_executor(
-            None, ai_engine.generate_updates
-        )
+        result = await asyncio.to_thread(ai_engine.generate_updates)
     else:
-        result = await asyncio.get_event_loop().run_in_executor(
-            None, ai_engine.answer_question, question, user_name
-        )
+        result = await asyncio.to_thread(ai_engine.answer_question, question, user_name)
     await placeholder.edit_text(result, parse_mode=ParseMode.MARKDOWN)
 
 
@@ -193,7 +189,7 @@ async def cmd_updates(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
     placeholder = await update.message.reply_text("🍪 ...")
-    result = await asyncio.get_event_loop().run_in_executor(None, ai_engine.generate_updates)
+    result = await asyncio.to_thread(ai_engine.generate_updates)
     await placeholder.edit_text(result, parse_mode=ParseMode.MARKDOWN)
 
 
@@ -343,7 +339,9 @@ async def cmd_crawl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     await update.message.reply_text(f"🕷️ Crawling `{crawl_url}`...", parse_mode=ParseMode.MARKDOWN)
-    result = ingestion_crawler.crawl_site(crawl_url, max_pages=30)
+
+    # Run the blocking Playwright crawl in a thread so the event loop stays free
+    result = await asyncio.to_thread(ingestion_crawler.crawl_site, crawl_url, 30)
     if not result["success"]:
         await update.message.reply_text(f"❌ Crawl failed: {result.get('error', 'unknown')}")
         return
@@ -470,6 +468,7 @@ async def cmd_syncnow(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("🚫 Admin only.")
         return
     github_sync.sync_knowledge_to_github()
+    _load_chain_data(force_reload=True)
     await update.message.reply_text("🍪 Synced to GitHub.")
 
 
@@ -547,9 +546,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
         placeholder = await message.reply_text("🍪 ...")
         user_name = update.effective_user.first_name or "community member"
-        adjusted = await asyncio.get_event_loop().run_in_executor(
-            None, ai_engine.adjust_post, original, instruction, user_name
-        )
+        adjusted = await asyncio.to_thread(ai_engine.adjust_post, original, instruction, user_name)
         await placeholder.edit_text(f"*Adjusted post:*\n\n{adjusted}", parse_mode=ParseMode.MARKDOWN)
         return
 
