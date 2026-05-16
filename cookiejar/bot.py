@@ -6,6 +6,7 @@ Mode (listener vs answer) is set in config; the same handler set is
 registered regardless of mode — mode only affects what the bot responds to.
 """
 
+import fcntl
 import logging
 import sys
 import threading
@@ -108,6 +109,21 @@ def build_app() -> Application:
 def main() -> None:
     _setup_logging()
     _validate_config()
+
+    # Prevent two instances from running simultaneously with the same token.
+    # A second process will fail to acquire the lock and exit cleanly.
+    lock_path = config.CACHE_DIR / "cookiejar.lock"
+    config.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    lock_file = open(lock_path, "w")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        log.error(
+            "Another CookieJar instance is already running (lock: %s). Exiting.",
+            lock_path,
+        )
+        sys.exit(1)
+
     log.info("CookieJar starting in %s mode", config.BOT_MODE.upper())
 
     config.CACHE_DIR.mkdir(parents=True, exist_ok=True)

@@ -308,15 +308,21 @@ async def cmd_save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    # Case 2: URL — save as metadata entry, do NOT crawl
-    # Be forgiving: auto-prepend https:// if missing
-    if arg and not arg.startswith("http://") and not arg.startswith("https://") and "." in arg:
-        arg = "https://" + arg
-    if arg.startswith("http://") or arg.startswith("https://"):
+    # Case 2: URL (with optional description after it)
+    # Formats: /save <url>  OR  /save <url> <description text>
+    first_token = context.args[0] if context.args else ""
+    if first_token and not first_token.startswith("http") and "." in first_token:
+        first_token = "https://" + first_token
+    if first_token.startswith("http://") or first_token.startswith("https://"):
+        url = first_token
+        # Everything after the URL is the description
+        description = " ".join(context.args[1:]).strip() if context.args and len(context.args) > 1 else ""
+        content = description if description else f"Official link: {url}"
+        title = description[:80] if description else url
         await _intake(
-            update, content=f"Official link: {arg}",
-            source=arg,
-            title=arg,
+            update, content=content,
+            source=url,
+            title=title,
             tags=["link", "url"],
         )
         return
@@ -556,8 +562,19 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("🚫 Admin only.")
         return
     chat = update.effective_chat
+    # If called from a DM, use the first configured group chat
+    target_chat_id = chat.id
+    if chat.type == "private":
+        if config.ALLOWED_CHAT_IDS:
+            target_chat_id = next(iter(config.ALLOWED_CHAT_IDS))
+        else:
+            await update.message.reply_text(
+                "ℹ️ Run `/admin` inside the group to see the admin list.",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+            return
     try:
-        admins = await context.bot.get_chat_administrators(chat.id)
+        admins = await context.bot.get_chat_administrators(target_chat_id)
     except Exception as e:
         await update.message.reply_text(f"❌ Could not fetch admin list: {e}")
         return
@@ -566,7 +583,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         u = member.user
         uname = f"@{u.username}" if u.username else u.full_name or str(u.id)
         tier = "👑" if member.status == "creator" else "🔑"
-        lines.append(f"{tier} {uname} (`{u.id}`)") 
+        lines.append(f"{tier} {uname} (`{u.id}`)")  
     lines.append("\n_To grant bot admin rights, promote the user in Telegram group settings._")
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.MARKDOWN)
 
