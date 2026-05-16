@@ -2,48 +2,57 @@
   "topics": {
     "chain": {
       "file": "topics/chain.jsonl",
-      "count": 8,
-      "description": "Architecture, consensus, validators, bridge, ecosystem dApps"
+      "count": 22,
+      "description": "Architecture, consensus, validators, bridge, ecosystem dApps",
+      "entry_count": 22
     },
     "lore": {
       "file": "topics/lore.jsonl",
-      "count": 4,
-      "description": "Origin story, history, culture, Gorbagana"
+      "count": 7,
+      "description": "Origin story, history, culture, Gorbagana",
+      "entry_count": 7
     },
     "token": {
       "file": "topics/token.jsonl",
-      "count": 1,
-      "description": "$COOK tokenomics, staking, bridge mechanics"
+      "count": 0,
+      "description": "$COOK tokenomics, staking, bridge mechanics",
+      "entry_count": 0
     },
     "community": {
       "file": "topics/community.jsonl",
       "count": 3,
-      "description": "Telegram groups, community vault, governance"
+      "description": "Telegram groups, community vault, governance",
+      "entry_count": 3
     },
     "dev": {
       "file": "topics/dev.jsonl",
-      "count": 5,
-      "description": "Developer guide, SDK, RPC, API, builder docs"
+      "count": 0,
+      "description": "Developer guide, SDK, RPC, API, builder docs",
+      "entry_count": 0
     },
     "faq": {
       "file": "topics/faq.jsonl",
-      "count": 6,
-      "description": "Getting started, wallets, how-to guides, degens guide"
+      "count": 0,
+      "description": "Getting started, wallets, how-to guides, degens guide",
+      "entry_count": 0
     },
     "links": {
       "file": "topics/links.jsonl",
-      "count": 4,
-      "description": "Official websites, explorer, bridge, swap, dApps"
+      "count": 0,
+      "description": "Official websites, explorer, bridge, swap, dApps",
+      "entry_count": 0
     },
     "socials": {
       "file": "topics/socials.jsonl",
       "count": 1,
-      "description": "Official X/Twitter, community Twitter handles"
+      "description": "Official X/Twitter, community Twitter handles",
+      "entry_count": 1
     },
     "general": {
       "file": "topics/general.jsonl",
-      "count": 1,
-      "description": "General knowledge, miscellaneous"
+      "count": 0,
+      "description": "General knowledge, miscellaneous",
+      "entry_count": 0
     }
   },
   "total_active": 33,
