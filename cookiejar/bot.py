@@ -6,10 +6,15 @@ Mode (listener vs answer) is set in config; the same handler set is
 registered regardless of mode — mode only affects what the bot responds to.
 """
 
-import fcntl
 import logging
 import sys
 import threading
+
+# Cross-platform file locking
+if sys.platform == "win32":
+    import msvcrt
+else:
+    import fcntl
 
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
@@ -116,8 +121,11 @@ def main() -> None:
     config.CACHE_DIR.mkdir(parents=True, exist_ok=True)
     lock_file = open(lock_path, "w")
     try:
-        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
+        if sys.platform == "win32":
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (OSError, IOError):
         log.error(
             "Another CookieJar instance is already running (lock: %s). Exiting.",
             lock_path,
