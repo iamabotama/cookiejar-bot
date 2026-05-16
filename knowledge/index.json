@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "topics": {
+    "lore": {
+      "name": "lore",
+      "description": "Cookie Chain origin story, history, culture, lore",
+      "file": "topics/lore.jsonl",
+      "entry_count": 2
+    },
+    "chain": {
+      "name": "chain",
+      "description": "Cookie Chain blockchain architecture, consensus, validators, bridge",
+      "file": "topics/chain.jsonl",
+      "entry_count": 17
+    },
+    "token": {
+      "name": "token",
+      "description": "$COOK token, tokenomics, staking, contract address",
+      "file": "topics/token.jsonl",
+      "entry_count": 2
+    },
+    "community": {
+      "name": "community",
+      "description": "Telegram groups: whales, memes, devs, general, announcements",
+      "file": "topics/community.jsonl",
+      "entry_count": 1
+    },
+    "dev": {
+      "name": "dev",
+      "description": "Developer guide, SDK, RPC, smart contracts, API",
+      "file": "topics/dev.jsonl",
+      "entry_count": 0
+    },
+    "faq": {
+      "name": "faq",
+      "description": "FAQ, getting started, wallets, how-to guides",
+      "file": "topics/faq.jsonl",
+      "entry_count": 0
+    },
+    "links": {
+      "name": "links",
+      "description": "Official websites, docs, explorer, bridge, swap URLs",
+      "file": "topics/links.jsonl",
+      "entry_count": 4
+    },
+    "socials": {
+      "name": "socials",
+      "description": "Official X/Twitter accounts, community Twitter handles",
+      "file": "topics/socials.jsonl",
+      "entry_count": 1
+    },
+    "general": {
+      "name": "general",
+      "description": "General Cookie Chain information and catch-all",
+      "file": "topics/general.jsonl",
+      "entry_count": 0
+    }
+  }
+}

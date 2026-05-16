@@ -126,11 +126,13 @@ def _build_system_prompt(knowledge: str, extra_instruction: str = "") -> str:
 
 def answer_question(question: str, user_name: str = "community member") -> str:
     """
-    Answer a question using the active knowledge base as context.
+    Answer a question using topic-relevant knowledge base entries as context.
+    Classifies the question into 1-3 topics and loads only those files,
+    keeping the context window focused and reducing token cost.
     Guardrails are injected as the highest-priority layer of the system prompt.
     Automatically selects standard or heavy model based on query complexity.
     """
-    knowledge = knowledge_store.get_knowledge_context()
+    knowledge = knowledge_store.get_topic_knowledge_context(question)
     model = config.AI_MODEL_HEAVY if _is_complex_query(question) else config.AI_MODEL
 
     system_prompt = _build_system_prompt(

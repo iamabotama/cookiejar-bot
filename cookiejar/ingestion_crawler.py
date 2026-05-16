@@ -140,7 +140,7 @@ def _playwright_available() -> bool:
 def crawl_spa(
     start_url: str,
     max_pages: int = 30,
-    wait_ms: int = 2000,
+    wait_ms: int = 3500,
 ) -> dict:
     """
     Crawl a JavaScript SPA by:
@@ -167,25 +167,51 @@ def crawl_spa(
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             context = browser.new_context(
-                user_agent="CookieJarBot/1.0 (community knowledge crawler)"
+                user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             )
             page = context.new_page()
 
             # Load the start URL
             log.info("SPA crawl: loading %s", start_url)
             try:
-                page.goto(start_url, wait_until="domcontentloaded", timeout=30000)
+                page.goto(start_url, wait_until="networkidle", timeout=30000)
             except Exception:
-                page.goto(start_url, wait_until="load", timeout=30000)
-            page.wait_for_timeout(wait_ms)
+                try:
+                    page.goto(start_url, wait_until="load", timeout=30000)
+                except Exception:
+                    page.goto(start_url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(1000)
 
             # --- Discover navigation targets ---
             nav_targets = _discover_spa_nav(page, start_url, base_origin)
             log.info("SPA crawl: discovered %d nav targets", len(nav_targets))
 
-            # If no nav targets found, just scrape the current page
+            # If no nav targets found, scrape the current page plus follow same-origin links
             if not nav_targets:
-                nav_targets = [{"url": start_url, "label": "Main Page", "type": "url"}]
+                log.info("SPA crawl: no nav targets found, scraping page directly")
+                content = _extract_spa_content(page)
+                if not content:
+                    # Last resort: grab all visible text
+                    try:
+                        content = _clean_text(page.inner_text("body"))
+                    except Exception:
+                        content = ""
+                if content:
+                    title = _get_page_title(page, start_url)
+                    pages.append({"url": start_url, "title": title, "content": content})
+                    log.info("SPA crawl: single-page fallback got %d chars", len(content))
+                # Also try to follow any same-origin links on the page
+                try:
+                    links = page.evaluate("""
+                        () => Array.from(document.querySelectorAll('a[href]'))
+                            .map(a => a.href)
+                            .filter(h => h.startsWith(window.location.origin))
+                    """)
+                    for lnk in list(dict.fromkeys(links))[:max_pages - 1]:
+                        if lnk != start_url:
+                            nav_targets.append({"url": lnk, "label": lnk, "type": "url"})
+                except Exception:
+                    pass
 
             # --- Visit each target ---
             for target in nav_targets[:max_pages]:
@@ -198,8 +224,11 @@ def crawl_spa(
 
                     if t_type == "hash":
                         # Navigate to the hash anchor
-                        page.goto(url, wait_until="domcontentloaded", timeout=15000)
-                        page.wait_for_timeout(wait_ms)
+                        try:
+                            page.goto(url, wait_until="networkidle", timeout=15000)
+                        except Exception:
+                            page.goto(url, wait_until="load", timeout=15000)
+                        page.wait_for_timeout(500)
                         # Try clicking the nav item if it exists
                         try:
                             fragment = urlparse(url).fragment
@@ -211,8 +240,11 @@ def crawl_spa(
                         except Exception:
                             pass
                     else:
-                        page.goto(url, wait_until="domcontentloaded", timeout=15000)
-                        page.wait_for_timeout(wait_ms)
+                        try:
+                            page.goto(url, wait_until="networkidle", timeout=15000)
+                        except Exception:
+                            page.goto(url, wait_until="load", timeout=15000)
+                        page.wait_for_timeout(500)
 
                     content = _extract_spa_content(page)
 

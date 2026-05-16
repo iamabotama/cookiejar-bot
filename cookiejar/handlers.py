@@ -357,7 +357,7 @@ async def cmd_crawl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     saved, skipped = 0, 0
     for pg in result["pages"]:
         pg_content = pg.get("content", "").strip()
-        if len(pg_content) < 80:
+        if len(pg_content) < 50:
             skipped += 1
             continue
         knowledge_store.add_entry(
