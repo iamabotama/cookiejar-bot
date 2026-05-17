@@ -4,13 +4,13 @@
       "file": "topics/chain.jsonl",
       "count": 23,
       "description": "Architecture, consensus, validators, bridge, ecosystem dApps",
-      "entry_count": 23
+      "entry_count": 51
     },
     "lore": {
       "file": "topics/lore.jsonl",
       "count": 7,
       "description": "Origin story, history, culture, Gorbagana",
-      "entry_count": 7
+      "entry_count": 9
     },
     "token": {
       "file": "topics/token.jsonl",
