@@ -69,7 +69,7 @@ TOPICS: list[dict] = [
             "$cook", "tokenomics", "staking", "stake",
             "supply", "allocation", "airdrop", "reward",
             "emission", "burn",
-            "gorboy whitepaper", "gorboy token", "gorboy tokenomics",
+            "gorboy", "goyboy", "gorboy whitepaper", "gorboy token", "gorboy tokenomics",
         ],
         "tags": ["token", "cook", "tokenomics", "staking", "ca"],
     },
@@ -221,7 +221,7 @@ def classify_to_topic(entry: dict) -> str:
     tags = [t.lower() for t in entry.get("tags", [])]
     source = entry.get("source", "").lower()
     title = entry.get("title", "").lower()
-    content_snippet = entry.get("content", "")[:200].lower()
+    content_snippet = entry.get("content", "")[:500].lower()
     combined = " ".join(tags) + " " + source + " " + title + " " + content_snippet
 
     # Hard-coded source-pattern overrides (checked before keyword matching)
@@ -340,11 +340,14 @@ def add_entry(
         "updated_at": _now_iso(),
     }
 
+    # Classify topic and write it into the entry before saving
+    topic = classify_to_topic(entry)
+    entry["topic"] = topic
+
     # Write to active.jsonl
     _append_entry_to_file(config.ACTIVE_CACHE, entry)
 
     # Write to topic file
-    topic = classify_to_topic(entry)
     _append_entry_to_file(_topic_path(topic), entry)
     _increment_topic_count(topic)
 
