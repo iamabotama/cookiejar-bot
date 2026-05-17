@@ -42,11 +42,12 @@ log = logging.getLogger(__name__)
 TOPICS: list[dict] = [
     {
         "name": "lore",
-        "description": "Cookie Chain origin story, history, culture, lore",
+        "description": "Cookie Chain origin story, history, culture, lore, Gorboy/Goyboy meme token history",
         "keywords": [
             "origin", "story", "history", "lore", "culture", "recipe",
             "cookie recipe", "founded", "beginning", "birth", "genesis",
             "cookie boy", "cookie chain story",
+            "gorboy", "goyboy", "gor-boy", "gorbagio",
         ],
         "tags": ["lore", "origin", "history", "culture", "cookie-chain"],
     },
@@ -63,11 +64,12 @@ TOPICS: list[dict] = [
     },
     {
         "name": "token",
-        "description": "$COOK token, tokenomics, staking, contract address",
+        "description": "$COOK token, tokenomics, staking, contract address, Gorboy/GORBOY token whitepaper and tokenomics",
         "keywords": [
             "$cook", "tokenomics", "staking", "stake",
             "supply", "allocation", "airdrop", "reward",
             "emission", "burn",
+            "gorboy whitepaper", "gorboy token", "gorboy tokenomics",
         ],
         "tags": ["token", "cook", "tokenomics", "staking", "ca"],
     },
