@@ -433,6 +433,25 @@ def _is_single_document(url: str) -> bool:
     return False
 
 
+def _github_blob_to_raw(url: str) -> str:
+    """
+    Convert a GitHub blob viewer URL to its raw.githubusercontent.com equivalent.
+    e.g. https://github.com/user/repo/blob/main/file.md
+      -> https://raw.githubusercontent.com/user/repo/main/file.md
+    Returns the original URL unchanged if it is not a GitHub blob URL.
+    """
+    parsed = urlparse(url)
+    if parsed.hostname not in ("github.com", "www.github.com"):
+        return url
+    # Path format: /user/repo/blob/branch/path/to/file
+    parts = parsed.path.lstrip("/").split("/")
+    if len(parts) >= 4 and parts[2] == "blob":
+        # Reconstruct as raw URL: /user/repo/branch/path/to/file
+        raw_path = "/".join(parts[:2] + parts[3:])
+        return f"https://raw.githubusercontent.com/{raw_path}"
+    return url
+
+
 def _fetch_single_document(url: str) -> dict:
     """Fetch a single document URL and return it as a one-page crawl result."""
     try:
@@ -440,6 +459,12 @@ def _fetch_single_document(url: str) -> dict:
         from bs4 import BeautifulSoup
     except ImportError:
         return _err("requests or beautifulsoup4 not installed")
+
+    # Convert GitHub blob viewer URLs to raw content URLs
+    raw_url = _github_blob_to_raw(url)
+    if raw_url != url:
+        log.info("Converted GitHub blob URL to raw: %s", raw_url)
+        url = raw_url
 
     headers = {"User-Agent": "CookieJarBot/1.0 (community knowledge crawler)"}
     try:

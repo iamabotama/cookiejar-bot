@@ -8,15 +8,15 @@
     },
     "lore": {
       "file": "topics/lore.jsonl",
-      "count": 10,
+      "count": 7,
       "description": "Origin story, history, culture, Gorbagana",
-      "entry_count": 10
+      "entry_count": 7
     },
     "token": {
       "file": "topics/token.jsonl",
-      "count": 2,
+      "count": 0,
       "description": "$COOK tokenomics, staking, bridge mechanics",
-      "entry_count": 2
+      "entry_count": 0
     },
     "community": {
       "file": "topics/community.jsonl",
@@ -26,15 +26,15 @@
     },
     "dev": {
       "file": "topics/dev.jsonl",
-      "count": 1,
+      "count": 0,
       "description": "Developer guide, SDK, RPC, API, builder docs",
-      "entry_count": 1
+      "entry_count": 0
     },
     "faq": {
       "file": "topics/faq.jsonl",
-      "count": 1,
+      "count": 0,
       "description": "Getting started, wallets, how-to guides, degens guide",
-      "entry_count": 1
+      "entry_count": 0
     },
     "links": {
       "file": "topics/links.jsonl",
