@@ -1,60 +1,68 @@
 {
+  "version": 2,
   "topics": {
-    "chain": {
-      "file": "topics/chain.jsonl",
-      "count": 23,
-      "description": "Architecture, consensus, validators, bridge, ecosystem dApps",
-      "entry_count": 23
-    },
     "lore": {
+      "name": "lore",
+      "description": "Cookie Chain origin story, history, culture, lore, Gorboy/Goyboy meme token history",
       "file": "topics/lore.jsonl",
-      "count": 7,
-      "description": "Origin story, history, culture, Gorbagana",
-      "entry_count": 8
+      "entry_count": 8,
+      "count": 8
+    },
+    "chain": {
+      "name": "chain",
+      "description": "Cookie Chain blockchain architecture, consensus, validators, bridge",
+      "file": "topics/chain.jsonl",
+      "entry_count": 23,
+      "count": 23
     },
     "token": {
+      "name": "token",
+      "description": "$COOK token, tokenomics, staking, contract address, Gorboy/GORBOY token whitepaper and tokenomics",
       "file": "topics/token.jsonl",
-      "count": 0,
-      "description": "$COOK tokenomics, staking, bridge mechanics",
-      "entry_count": 0
+      "entry_count": 0,
+      "count": 0
     },
     "community": {
+      "name": "community",
+      "description": "Telegram groups: whales, memes, devs, general, announcements",
       "file": "topics/community.jsonl",
-      "count": 2,
-      "description": "Telegram groups, community vault, governance",
-      "entry_count": 2
+      "entry_count": 2,
+      "count": 2
     },
     "dev": {
+      "name": "dev",
+      "description": "Developer guide, SDK, RPC, smart contracts, API",
       "file": "topics/dev.jsonl",
-      "count": 0,
-      "description": "Developer guide, SDK, RPC, API, builder docs",
-      "entry_count": 0
+      "entry_count": 0,
+      "count": 0
     },
     "faq": {
+      "name": "faq",
+      "description": "FAQ, getting started, wallets, how-to guides",
       "file": "topics/faq.jsonl",
-      "count": 0,
-      "description": "Getting started, wallets, how-to guides, degens guide",
-      "entry_count": 0
+      "entry_count": 0,
+      "count": 0
     },
     "links": {
+      "name": "links",
+      "description": "Official websites, docs, explorer, bridge, swap URLs",
       "file": "topics/links.jsonl",
-      "count": 0,
-      "description": "Official websites, explorer, bridge, swap, dApps",
-      "entry_count": 0
+      "entry_count": 0,
+      "count": 0
     },
     "socials": {
+      "name": "socials",
+      "description": "Official X/Twitter accounts, community Twitter handles",
       "file": "topics/socials.jsonl",
-      "count": 0,
-      "description": "Official X/Twitter, community Twitter handles",
-      "entry_count": 0
+      "entry_count": 0,
+      "count": 0
     },
     "general": {
+      "name": "general",
+      "description": "General Cookie Chain information and catch-all",
       "file": "topics/general.jsonl",
-      "count": 1,
-      "description": "General knowledge, miscellaneous",
-      "entry_count": 1
+      "entry_count": 1,
+      "count": 1
     }
-  },
-  "total_active": 33,
-  "last_rebuilt": "2026-05-16T20:54:59.051973+00:00"
+  }
 }
