@@ -209,6 +209,10 @@ def _topic_agent(question: str, topic_name: str) -> Optional[str]:
         return None
 
     # Build a compact context block for this topic
+    # Sort: lowest priority number first (1=highest), then newest ingested_at first
+    # Negate priority so lower number = higher importance; ISO strings sort lexicographically
+    active.sort(key=lambda e: (e.get('priority', 5), '~' if not e.get('ingested_at') else e.get('ingested_at')), reverse=True)
+    active.sort(key=lambda e: e.get('priority', 5))
     context_parts = []
     total = 0
     for e in active:
@@ -217,7 +221,7 @@ def _topic_agent(question: str, topic_name: str) -> Optional[str]:
             f"SOURCE: {e.get('source', '?')}\n"
             f"{e.get('content', '').strip()}\n"
         )
-        if total + len(block) > 4000:   # keep each topic agent context tight
+        if total + len(block) > 12000:   # generous limit — summaries are now compact
             break
         context_parts.append(block)
         total += len(block)
