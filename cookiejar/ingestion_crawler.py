@@ -393,6 +393,92 @@ def _get_page_title(page, fallback: str) -> str:
 # Public entry point
 # ---------------------------------------------------------------------------
 
+# File extensions that indicate a direct document — fetch once, never spider
+_DOCUMENT_EXTENSIONS = (
+    ".md", ".txt", ".pdf", ".rst", ".csv", ".json",
+    ".xml", ".yaml", ".yml", ".toml",
+)
+
+# Hostnames whose URL patterns indicate a single rendered file view
+# e.g. github.com/user/repo/blob/main/file.md
+_SINGLE_FILE_PATTERNS = [
+    # GitHub blob view: /blob/<branch>/<path>
+    ("github.com", "/blob/"),
+    # GitLab blob view
+    ("gitlab.com", "/-/blob/"),
+    # Raw file hosts
+    ("raw.githubusercontent.com", None),
+    ("gist.github.com", None),
+    ("pastebin.com", None),
+]
+
+
+def _is_single_document(url: str) -> bool:
+    """Return True if the URL points to a single document that should not be spidered."""
+    from urllib.parse import urlparse
+    parsed = urlparse(url.lower())
+    path = parsed.path
+
+    # Direct file extension check
+    if any(path.endswith(ext) for ext in _DOCUMENT_EXTENSIONS):
+        return True
+
+    # Host + path pattern check
+    hostname = parsed.hostname or ""
+    for host, path_fragment in _SINGLE_FILE_PATTERNS:
+        if host in hostname:
+            if path_fragment is None or path_fragment in path:
+                return True
+
+    return False
+
+
+def _fetch_single_document(url: str) -> dict:
+    """Fetch a single document URL and return it as a one-page crawl result."""
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return _err("requests or beautifulsoup4 not installed")
+
+    headers = {"User-Agent": "CookieJarBot/1.0 (community knowledge crawler)"}
+    try:
+        resp = requests.get(url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        ct = resp.headers.get("content-type", "")
+
+        # Plain text / markdown
+        if "html" not in ct:
+            text = _clean_text(resp.text)
+            title = url.rstrip("/").split("/")[-1]
+            if text:
+                return _ok([{"url": url, "title": title, "content": text}])
+            return _err("No content extracted from document")
+
+        # HTML wrapper (e.g. GitHub blob view renders .md as HTML)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        title = ""
+        if soup.title:
+            title = soup.title.string or ""
+        for tag in soup(["script", "style", "nav", "header", "footer",
+                         "aside", "noscript", "iframe"]):
+            tag.decompose()
+        # GitHub renders file content inside article.markdown-body
+        main = (
+            soup.find(class_="markdown-body")
+            or soup.find("article")
+            or soup.find("main")
+            or soup.find(id="content")
+            or soup.find("body")
+        )
+        text = _clean_text(main.get_text(separator="\n") if main else "")
+        if len(text) > 50:
+            return _ok([{"url": url, "title": title.strip() or url, "content": text}])
+        return _err("No usable content found in document")
+    except Exception as exc:
+        return _err(f"Failed to fetch document: {exc}")
+
+
 def crawl_site(
     url: str,
     max_pages: int = 30,
@@ -401,18 +487,30 @@ def crawl_site(
     """
     Main entry point. Auto-detects whether to use SPA or static crawl.
 
+    If the URL points directly to a single document (e.g. a GitHub .md file,
+    a raw text file, a PDF), it is fetched once without spidering — preventing
+    the crawler from wandering into unrelated pages.
+
     Args:
         url: The starting URL to crawl.
         max_pages: Maximum number of pages/sections to ingest.
-        force_mode: "spa" or "static" to override auto-detection.
+        force_mode: "spa", "static", or "single" to override auto-detection.
 
     Returns:
         {success, pages: [{url, title, content}], count}
     """
+    if force_mode == "single":
+        log.info("Forced single-document fetch for %s", url)
+        return _fetch_single_document(url)
     if force_mode == "static":
         return crawl_static(url, max_pages=max_pages)
     if force_mode == "spa":
         return crawl_spa(url, max_pages=max_pages)
+
+    # Auto-detect single document — never spider these
+    if _is_single_document(url):
+        log.info("Detected single-document URL, fetching without spidering: %s", url)
+        return _fetch_single_document(url)
 
     # Auto-detect: if Playwright is available, always use SPA mode
     # (it handles both static and dynamic sites gracefully)
