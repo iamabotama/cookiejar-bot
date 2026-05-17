@@ -84,6 +84,37 @@ def push_file(local_path: Path, repo_path: str, commit_message: str) -> bool:
         return False
 
 
+def fetch_jsonl_from_github(repo_path: str) -> list[dict]:
+    """
+    Fetch a JSONL file directly from GitHub and return its parsed lines as a list of dicts.
+    Returns an empty list if the file doesn't exist or the request fails.
+    """
+    import json as _json
+    if not config.GITHUB_TOKEN:
+        log.warning("GITHUB_TOKEN not set — cannot fetch %s from GitHub", repo_path)
+        return []
+    url = f"{GITHUB_API}/repos/{config.GITHUB_REPO}/contents/{repo_path}"
+    r = requests.get(url, headers=_headers(), params={"ref": config.GITHUB_BRANCH}, timeout=15)
+    if r.status_code == 200:
+        content = base64.b64decode(r.json()["content"]).decode("utf-8")
+        entries = []
+        for line in content.splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    entries.append(_json.loads(line))
+                except _json.JSONDecodeError:
+                    pass
+        log.info("Fetched %d entries from GitHub:%s", len(entries), repo_path)
+        return entries
+    elif r.status_code == 404:
+        log.info("GitHub file not found: %s", repo_path)
+        return []
+    else:
+        log.error("Failed to fetch %s from GitHub: %s", repo_path, r.status_code)
+        return []
+
+
 def pull_file(repo_path: str, local_path: Path) -> bool:
     """
     Pull a file from the GitHub repo and save it locally.

@@ -359,11 +359,24 @@ def add_entry(
 # ---------------------------------------------------------------------------
 
 def load_active() -> list[dict]:
-    """Return all active entries from active.jsonl."""
+    """Return all active entries — reads directly from GitHub as source of truth."""
+    from . import github_sync
+    entries = github_sync.fetch_jsonl_from_github("knowledge/active.jsonl")
+    if entries:
+        return [e for e in entries if e.get("status") == "active"]
+    # Fallback to local disk if GitHub fetch fails
+    log.warning("load_active: GitHub fetch failed, falling back to local disk")
     return [e for e in _read_entries(config.ACTIVE_CACHE) if e.get("status") == "active"]
 
 def load_topic(topic_name: str) -> list[dict]:
-    """Load all entries from a specific topic file."""
+    """Load all entries for a topic — reads directly from GitHub as source of truth."""
+    from . import github_sync
+    entries = github_sync.fetch_jsonl_from_github(f"knowledge/topics/{topic_name}.jsonl")
+    if entries is not None and len(entries) >= 0:
+        # fetch_jsonl_from_github returns [] for 404 (topic file doesn't exist yet) — that's fine
+        return entries
+    # Fallback to local disk if GitHub fetch fails
+    log.warning("load_topic: GitHub fetch failed for %s, falling back to local disk", topic_name)
     return _read_entries(_topic_path(topic_name))
 
 def load_topics_for_question(question: str) -> list[dict]:
