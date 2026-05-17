@@ -685,8 +685,8 @@ def get_bot_commands(is_admin_context: bool = False) -> list:
         BotCommand("help",    "Show commands"),
     ]
     admin_extra = [
-        BotCommand("save",        "[Admin] Save a message or text"),
-        BotCommand("crawl",       "[Admin] Crawl entire site"),
+        BotCommand("save",        "[Admin] Save text information to knowledge base"),
+        BotCommand("crawl",       "[Admin] Crawl and ingest page"),
         BotCommand("stale",       "[Admin] Mark entry stale"),
         BotCommand("deletelast",  "[Admin] Undo last save"),
         BotCommand("announce",    "[Admin] Post intro message"),
