@@ -5,7 +5,7 @@
       "name": "lore",
       "description": "Cookie Chain origin story, history, culture, lore, Gorboy/Goyboy meme token history",
       "file": "topics/lore.jsonl",
-      "entry_count": 9,
+      "entry_count": 10,
       "count": 9
     },
     "chain": {
@@ -13,7 +13,7 @@
       "description": "Cookie Chain blockchain architecture, consensus, validators, bridge",
       "file": "topics/chain.jsonl",
       "entry_count": 24,
-      "count": 23
+      "count": 24
     },
     "token": {
       "name": "token",
