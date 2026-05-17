@@ -344,6 +344,67 @@ def _orchestrate(
 
 
 # ===========================================================================
+# INGEST-TIME SUMMARIZATION
+# ===========================================================================
+
+# Pages shorter than this (chars) are stored as-is; longer ones get summarized
+_SUMMARIZE_THRESHOLD = 1200
+
+
+def summarize_for_storage(content: str, source_url: str, title: str) -> str:
+    """
+    Summarize raw page/document content into a compact, LLM-friendly entry.
+
+    - Content under _SUMMARIZE_THRESHOLD chars is returned unchanged.
+    - Longer content is summarized by the LLM to ~800 words, extracting:
+        * What the document is about (1-2 sentences)
+        * The 5-10 highest-value specific facts, figures, names, addresses
+        * What questions this document can answer
+    The source URL is appended so the bot can always point users back to it.
+    """
+    if len(content) <= _SUMMARIZE_THRESHOLD:
+        # Short enough to store verbatim
+        return content
+
+    system = (
+        "You are a knowledge extraction agent for a community bot. "
+        "Your job is to read a document and extract the most valuable information "
+        "in a compact, structured format that will help the bot answer questions later.\n\n"
+        "Extract the following in order of priority:\n"
+        "1. What this document is about (1-2 sentences)\n"
+        "2. The 5-10 most important specific facts: numbers, dates, addresses, names, "
+        "mechanisms, or unique claims\n"
+        "3. What specific questions this document can answer\n"
+        "4. Any official links, contract addresses, or resources mentioned\n\n"
+        "Rules:\n"
+        "- Be specific, not generic. Extract actual values, not descriptions of values.\n"
+        "- Keep total output under 800 words.\n"
+        "- Do NOT add information not present in the document.\n"
+        "- Do NOT include greetings, preamble, or meta-commentary.\n"
+        "- End with: Source: " + source_url
+    )
+
+    try:
+        client = _get_client()
+        resp = client.chat.completions.create(
+            model=config.AI_MODEL,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": f"Document title: {title}\n\n{content[:12000]}"},
+            ],
+            max_tokens=1000,
+            temperature=0.1,
+        )
+        summary = resp.choices[0].message.content.strip()
+        log.info("[Summarizer] %s -> %d chars (was %d)", title[:50], len(summary), len(content))
+        return summary
+    except Exception as exc:
+        log.error("[Summarizer] Failed for %s: %s", title[:50], exc)
+        # Fall back to first 1200 chars if summarization fails
+        return content[:1200] + f"\n\nSource: {source_url}"
+
+
+# ===========================================================================
 # PUBLIC API
 # ===========================================================================
 

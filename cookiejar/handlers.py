@@ -407,10 +407,14 @@ async def cmd_crawl(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if len(pg_content) < 50:
             skipped += 1
             continue
+        pg_url   = pg.get("url", crawl_url)
+        pg_title = pg.get("title", pg.get("url", "Crawled page"))
+        # Summarize at ingest time — compact, high-value summary with source pointer
+        pg_content = ai_engine.summarize_for_storage(pg_content, pg_url, pg_title)
         knowledge_store.add_entry(
             content=pg_content,
-            source=pg.get("url", crawl_url),
-            title=pg.get("title", pg.get("url", "Crawled page")),
+            source=pg_url,
+            title=pg_title,
             tags=["web", "crawled"],
             added_by=user_id,
         )
