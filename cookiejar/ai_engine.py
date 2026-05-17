@@ -208,14 +208,39 @@ def _topic_agent(question: str, topic_name: str) -> Optional[str]:
         log.debug("[TopicAgent:%s] No active entries — skipping", topic_name)
         return None
 
+    # --- Keyword pre-filter ---
+    # Extract meaningful words from the question (3+ chars, ignore stop words)
+    _STOP = {'the','and','for','are','was','you','can','tell','me','about','what',
+             'how','why','when','where','who','is','it','in','of','to','a','an',
+             'do','did','does','have','has','been','be','this','that','with','from'}
+    q_words = {w.lower() for w in question.replace('?','').replace(',','').split()
+               if len(w) >= 3 and w.lower() not in _STOP}
+
+    def _entry_matches(e: dict) -> bool:
+        """Return True if any question word appears in the entry's searchable fields."""
+        haystack = ' '.join([
+            e.get('title', ''),
+            ' '.join(e.get('tags', [])),
+            e.get('content', '')[:500],   # first 500 chars of content
+        ]).lower()
+        return any(w in haystack for w in q_words)
+
+    matched = [e for e in active if _entry_matches(e)]
+    # Fall back to all active entries if nothing matched (avoids silent empty results)
+    if not matched:
+        log.debug("[TopicAgent:%s] No keyword match — using all %d active entries", topic_name, len(active))
+        matched = active
+    else:
+        log.info("[TopicAgent:%s] Keyword pre-filter: %d/%d entries matched", topic_name, len(matched), len(active))
+
+    # Sort matched entries: lowest priority number first, then newest first
+    matched.sort(key=lambda e: (e.get('priority', 5), '~' if not e.get('ingested_at') else e.get('ingested_at')), reverse=True)
+    matched.sort(key=lambda e: e.get('priority', 5))
+
     # Build a compact context block for this topic
-    # Sort: lowest priority number first (1=highest), then newest ingested_at first
-    # Negate priority so lower number = higher importance; ISO strings sort lexicographically
-    active.sort(key=lambda e: (e.get('priority', 5), '~' if not e.get('ingested_at') else e.get('ingested_at')), reverse=True)
-    active.sort(key=lambda e: e.get('priority', 5))
     context_parts = []
     total = 0
-    for e in active:
+    for e in matched:
         block = (
             f"ENTRY: {e.get('title', '?')}\n"
             f"SOURCE: {e.get('source', '?')}\n"
