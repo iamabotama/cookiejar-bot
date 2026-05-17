@@ -8,9 +8,9 @@
     },
     "lore": {
       "file": "topics/lore.jsonl",
-      "count": 8,
+      "count": 7,
       "description": "Origin story, history, culture, Gorbagana",
-      "entry_count": 8
+      "entry_count": 7
     },
     "token": {
       "file": "topics/token.jsonl",
