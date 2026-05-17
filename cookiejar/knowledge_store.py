@@ -697,12 +697,14 @@ def rebuild_topic_files() -> dict:
     for f in _topics_dir().glob("*.jsonl"):
         f.unlink()
 
-    # Reclassify every active entry into the matching topic file
+    # Distribute every active entry into the matching topic file.
+    # Honour the topic already stored on the entry; only re-classify
+    # if the field is absent (e.g. entries saved before the topic system).
     counts: dict[str, int] = {}
     for entry in _read_entries(config.ACTIVE_CACHE):
         if entry.get("status") != "active":
             continue
-        topic = classify_to_topic(entry)
+        topic = entry.get("topic") or classify_to_topic(entry)
         _append_entry_to_file(_topic_path(topic), entry)
         counts[topic] = counts.get(topic, 0) + 1
 

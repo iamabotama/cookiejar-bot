@@ -2,57 +2,57 @@
   "topics": {
     "chain": {
       "file": "topics/chain.jsonl",
-      "count": 28,
+      "count": 23,
       "description": "Architecture, consensus, validators, bridge, ecosystem dApps",
-      "entry_count": 28
+      "entry_count": 23
     },
     "lore": {
       "file": "topics/lore.jsonl",
-      "count": 7,
+      "count": 10,
       "description": "Origin story, history, culture, Gorbagana",
-      "entry_count": 7
+      "entry_count": 10
     },
     "token": {
       "file": "topics/token.jsonl",
-      "count": 0,
+      "count": 2,
       "description": "$COOK tokenomics, staking, bridge mechanics",
-      "entry_count": 0
+      "entry_count": 2
     },
     "community": {
       "file": "topics/community.jsonl",
-      "count": 3,
+      "count": 2,
       "description": "Telegram groups, community vault, governance",
-      "entry_count": 3
+      "entry_count": 2
     },
     "dev": {
       "file": "topics/dev.jsonl",
-      "count": 0,
+      "count": 1,
       "description": "Developer guide, SDK, RPC, API, builder docs",
-      "entry_count": 0
+      "entry_count": 1
     },
     "faq": {
       "file": "topics/faq.jsonl",
-      "count": 0,
+      "count": 1,
       "description": "Getting started, wallets, how-to guides, degens guide",
-      "entry_count": 0
+      "entry_count": 1
     },
     "links": {
       "file": "topics/links.jsonl",
-      "count": 1,
+      "count": 0,
       "description": "Official websites, explorer, bridge, swap, dApps",
-      "entry_count": 1
+      "entry_count": 0
     },
     "socials": {
       "file": "topics/socials.jsonl",
-      "count": 1,
+      "count": 0,
       "description": "Official X/Twitter, community Twitter handles",
-      "entry_count": 1
+      "entry_count": 0
     },
     "general": {
       "file": "topics/general.jsonl",
-      "count": 0,
+      "count": 1,
       "description": "General knowledge, miscellaneous",
-      "entry_count": 0
+      "entry_count": 1
     }
   },
   "total_active": 33,
